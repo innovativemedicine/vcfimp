@@ -10,6 +10,7 @@ case class VcfParseException(msg: String) extends Exception(msg)
 
 
 trait VcfParser {
+  import VcfParser._
   import Metadata._
   
   
@@ -63,13 +64,29 @@ trait VcfParser {
   protected def withVcfFile[A](file: File)(f: Iterator[String] => A): A = {
     val underlying = new FileInputStream(file)
     try {
-      val in = new BufferedReader(new InputStreamReader(maybeDecompress(underlying)), VcfParser.RowBufferSize)
-  	  val lines = Iterator continually (in.readLine()) takeWhile (_ != null)
+      val lines = vcfRows(underlying)
   	  f(lines)
   	  
     } finally {
       underlying.close()
     }
+  }
+  
+  
+  protected def withFile[A](file: File)(f: InputStream => A): A = {
+    val in = new FileInputStream(file)
+    try {
+      f(in)
+    } finally {
+      in.close()
+    }
+  }
+  
+  
+  /** Returns an `Iterator` of the rows of `underlying` efficiently. */
+  protected def vcfRows(underlying: InputStream) = {
+    val in = new BufferedReader(new InputStreamReader(maybeDecompress(underlying)), VcfParser.RowBufferSize)
+    Iterator continually (in.readLine()) takeWhile (_ != null)
   }
   
   
@@ -83,37 +100,48 @@ trait VcfParser {
    * Parses the VCF file `file` and pass the metadata and an `Iterator` of
    * variants and genotype data to `f`. The iterator is only valid within `f`.
    */
-  def parse[A](file: File, skipErrors: Boolean = true)
-  		(f: (VcfInfo, Iterator[(Variant, List[Format], List[List[List[VcfValue]]])]) => A) = {
-    withVcfFile(file) { lines =>
-      
-    	val vcf = parseMetadata(lines, skipErrors)
-    	val parser = new DataParsers {
-    	  val vcfInfo = vcf
-    	}
-    	
-    	val it = lines flatMap { row =>
-    	  parser.parse(parser.row, row) match {
-    	    case parser.Success(res, _) =>
-    	      Some(res)
-    	      
-    	    case error: parser.NoSuccess if skipErrors =>
-    	      println("Failed to parse variant, skipping row:\n%s" format error.toString())
-    	      None
-    	      
-    	    case error: parser.NoSuccess =>
-    	      throw VcfParseException(error.toString())
-    	  }
-    	}
-    	
-    	f(vcf, it)
-    }
+  def parse[A](file: File, skipErrors: Boolean)(f: Reader[A]): A =
+    withFile(file)(parse(_, skipErrors)(f))
+  
+    
+  /**
+   * Parses a VCF file from an arbitrary `InputStream`.
+   */
+  def parse[A](in: InputStream, skipErrors: Boolean)(f: Reader[A]): A =
+    parse(vcfRows(in), skipErrors)(f)
+  
+  
+  protected def parse[A](lines: Iterator[String], skipErrors: Boolean)(f: Reader[A]): A = {
+  	val vcf = parseMetadata(lines, skipErrors)
+  	val parser = new DataParsers {
+  	  val vcfInfo = vcf
+  	}
+  	
+  	val it = lines flatMap { row =>
+  	  parser.parse(parser.row, row) match {
+  	    case parser.Success(res, _) =>
+  	      Some(res)
+  	      
+  	    case error: parser.NoSuccess if skipErrors =>
+  	      println("Failed to parse variant, skipping row:\n%s" format error.toString())
+  	      None
+  	      
+  	    case error: parser.NoSuccess =>
+  	      throw VcfParseException(error.toString())
+  	  }
+  	}
+  	
+  	f(vcf, it)
   }
 }
 
 
 object VcfParser {
+  import Metadata._
+  
   val RowBufferSize = 1 * 1000 * 1000
+  
+  type Reader[A] = (VcfInfo, Iterator[(Variant, List[Format], List[List[List[VcfValue]]])]) => A
   
   def apply(): VcfParser = new VcfParser { }
 }

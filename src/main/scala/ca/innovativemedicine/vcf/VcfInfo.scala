@@ -56,6 +56,11 @@ trait VcfInfo {
   }
   
   
+  def getFormatFields: Seq[Format] = metadata collect {
+    case fmt: Format => fmt
+  }
+  
+  
   /**
    * Given a type `A` and an ID `id`, this will return the metadata with ID
    * `id` iff it is an instance of `A`.

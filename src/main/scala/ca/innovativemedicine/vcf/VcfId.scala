@@ -5,7 +5,9 @@ package ca.innovativemedicine.vcf
  * information of the file. This can only be useful within the context of a VCF
  * file.
  */
-case class VcfId(id: String)
+case class VcfId(id: String) {
+  override def toString: String = "<" + id + ">"
+}
 
 object VcfId {
   
