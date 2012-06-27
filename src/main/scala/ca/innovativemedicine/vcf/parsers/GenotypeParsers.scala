@@ -28,11 +28,15 @@ trait GenotypeParsers extends JavaTokenParsers with VcfValueParsers {
   
   
   def genotype(formats: List[Format], genotypeCount: Int, alleleCount: Int): Parser[List[List[VcfValue]]] = {
-    val parsers = formats map (getParser(_, genotypeCount, alleleCount))
-    
-    parsers.foldLeft(success(List[List[VcfValue]]())) { case (ps, p) =>
-      ps >> { vs => p ^^ { _ :: vs } }
-    } ^^ { _.reverse }
+    formats map (getParser(_, genotypeCount, alleleCount)) match {
+      case Nil =>
+        success(List[List[VcfValue]]())
+        
+      case p :: parsers =>
+        parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
+          ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
+        } ^^ { _.reverse }
+    }
   }
   
   

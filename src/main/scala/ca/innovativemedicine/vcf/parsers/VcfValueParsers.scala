@@ -42,27 +42,26 @@ trait VcfValueParsers extends JavaTokenParsers {
   def getParser(info: Metadata with HasArity with HasType, genotypeCount: Int, alleleCount: Int): Parser[List[VcfValue]] = {
     import Arity._
     
-	val valParser: Parser[VcfValue] = info.typed match {
-	  case Type.IntegerType => vcfInteger
-	  case Type.FloatType => vcfFloat
-	  case Type.StringType => vcfString("[^,;]*".r)
-	  case Type.CharacterType => vcfCharacter
-	  case Type.FlagType => vcfFlag
-	}
-	  
-	info.arity match {
-	  case MatchAlleleCount => 
-	    repNsep(alleleCount, valParser, ",")
-	
-	  case MatchGenotypeCount =>
-	    repNsep(genotypeCount, valParser, ",")
-
-	  case Variable =>
-	    repsep(valParser, ',')
-
-	  case Exact(n) =>
-	    repNsep(n, valParser, ",")
-	}
-  }
+  	val valParser: Parser[VcfValue] = info.typed match {
+  	  case Type.IntegerType => vcfInteger
+  	  case Type.FloatType => vcfFloat
+  	  case Type.StringType => vcfString("[^,;:]*".r)
+  	  case Type.CharacterType => vcfCharacter
+  	  case Type.FlagType => vcfFlag
+  	}
+  	  
+  	info.arity match {
+  	  case MatchAlleleCount => 
+  	    repNsep(alleleCount, valParser, ",")
+  	
+  	  case MatchGenotypeCount =>
+  	    repNsep(genotypeCount, valParser, ",")
   
+  	  case Variable =>
+  	    repsep(valParser, ",")
+  
+  	  case Exact(n) =>
+  	    repNsep(n, valParser, ",")
+  	}
+  }
 }
