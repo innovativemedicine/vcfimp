@@ -9,7 +9,7 @@ import scala.util.parsing.combinator.JavaTokenParsers
  * Provides a suite of parsers that are able to parse parts of the variants
  * from a VCF file.
  */
-trait VariantParsers extends JavaTokenParsers with InfoParsers {
+trait VariantParsers extends TsvParsers with InfoParsers {
   import Variant._
   import FilterResult._
   import JoinType._
@@ -19,13 +19,15 @@ trait VariantParsers extends JavaTokenParsers with InfoParsers {
   
   
   def variant: Parser[Variant] =
-    chromosome ~ position ~ ids ~ ref ~ alternates ~ optional(quality) ~ optional(filters) >> {
-	  case chr ~ pos ~ ids ~ ref ~ alt ~ qual ~ ftr =>
-	    val alleleCount = 1 + alt.size
-	    info(alleleCount) ^^ { infoMap =>
-	      Variant(chr, pos, ids, ref, alt, qual, ftr, infoMap)
-	    }
-	}
+    (chromosome & position & ids & ref & alternates & optional(quality) & optional(filters)) >> {
+      
+  	  case chr ~ pos ~ ids ~ ref ~ alt ~ qual ~ ftr =>
+  	    val alleleCount = 1 + alt.size
+  	    (tab ~> info(alleleCount)) ^^ { infoMap =>
+  	      Variant(chr, pos, ids, ref, alt, qual, ftr, infoMap)
+  	    }
+  	    
+  	}
     
   
   // Parsers for parsing individual fields from the variant-portion of a VCF file row.

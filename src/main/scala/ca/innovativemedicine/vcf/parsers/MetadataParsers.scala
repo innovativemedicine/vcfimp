@@ -4,7 +4,7 @@ import ca.innovativemedicine.vcf._
 import scala.util.parsing.combinator.JavaTokenParsers
 
 
-trait MetadataParsers extends JavaTokenParsers {
+trait MetadataParsers extends TsvParsers {
   import Metadata._
   
   
@@ -19,8 +19,8 @@ trait MetadataParsers extends JavaTokenParsers {
   
   
   def samples: Parser[List[Sample]] =
-    ("#CHROM" ~ "POS" ~ "ID" ~ "REF" ~ "ALT" ~ "QUAL" ~ "FILTER" ~ "INFO" ~ "FORMAT") ~> {
-      rep("[^\\t]+".r) ^^ { _ map { id => Sample(VcfId(id)) } }
+    (literal("#CHROM") & "POS" & "ID" & "REF" & "ALT" & "QUAL" & "FILTER" & "INFO" & "FORMAT") ~> {
+      rep(tab ~> "[^\\t]+".r) ^^ { _ map { id => Sample(VcfId(id)) } }
     }
   
   

@@ -9,7 +9,7 @@ import scala.util.parsing.combinator.JavaTokenParsers
  * Provides parsers for genotype data; that is, the FORMAT strings and the
  * sample data (sample data parser generated from the FORMAT string).
  */
-trait GenotypeParsers extends JavaTokenParsers with VcfValueParsers {
+trait GenotypeParsers extends TsvParsers with VcfValueParsers {
   import Metadata._
   
   def vcfInfo: VcfInfo
@@ -23,7 +23,7 @@ trait GenotypeParsers extends JavaTokenParsers with VcfValueParsers {
    */
   def genotypes(genotypeCount: Int, alleleCount: Int): Parser[(List[Format], List[List[List[VcfValue]]])] =
     format >> { fmts =>
-      repN(genotypeCount, genotype(fmts, genotypeCount, alleleCount)) ^^ { fmts -> _ }
+      repN(genotypeCount, tab ~> genotype(fmts, genotypeCount, alleleCount)) ^^ { fmts -> _ }
     }
   
   

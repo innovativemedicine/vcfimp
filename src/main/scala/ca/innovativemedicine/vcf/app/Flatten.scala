@@ -9,7 +9,6 @@ import scopt.immutable._
 import java.io.{ File, FileOutputStream, PrintWriter, InputStream }
 
 
-
 case class FlattenParams(
     vcfFile: Either[InputStream, File] = Left(System.in),
     prefix: Option[String] = None,

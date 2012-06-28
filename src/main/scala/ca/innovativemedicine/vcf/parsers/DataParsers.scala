@@ -17,7 +17,7 @@ trait DataParsers extends VariantParsers with GenotypeParsers {
     variant >> { variant =>
       val alleleCount = variant.alternates.size + 1
       
-      genotypes(genotypeCount, alleleCount) ^^ {
+      tab ~> genotypes(genotypeCount, alleleCount) ^^ {
         case (fmts, gts) =>
           (variant, fmts, gts)
       }
