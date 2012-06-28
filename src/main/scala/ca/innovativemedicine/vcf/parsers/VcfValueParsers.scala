@@ -51,7 +51,7 @@ trait VcfValueParsers extends JavaTokenParsers {
   	}
   	  
   	info.arity match {
-  	  case MatchAlleleCount => 
+  	  case MatchAlleleCount =>
   	    repNsep(alleleCount, valParser, ",")
   	
   	  case MatchGenotypeCount =>

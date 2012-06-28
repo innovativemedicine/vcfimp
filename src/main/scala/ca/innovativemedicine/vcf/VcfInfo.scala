@@ -5,14 +5,8 @@ package ca.innovativemedicine.vcf
  * actual variants start. That is, it contains all of the metadata and sample
  * names.
  */
-trait VcfInfo {
+case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
   import Metadata._
-  
-  /** All the Metadata associated with a VCF file. */
-  def metadata: Seq[Metadata]
-  
-  /** All of the samples being called in a VCF file. */
-  def samples: Seq[Sample]
   
   protected lazy val sampleLookup: Map[VcfId, Sample] =
     samples.map(s => s.id -> s)(collection.breakOut)
@@ -76,13 +70,5 @@ trait VcfInfo {
       
       if (M <:< A) Some(md.asInstanceOf[A]) else None
     }
-  }
-}
-
-
-object VcfInfo {
-  def apply(md: List[Metadata], ss: List[Sample]): VcfInfo = new VcfInfo {
-    val metadata = md
-    val samples = ss
   }
 }
