@@ -16,7 +16,7 @@ trait TsvParsers extends JavaTokenParsers {
   
   override protected val whiteSpace = """[ \n\x0B\f\r]""".r
   
-  protected val tab: Parser[String] = "\\t"
+  protected val tab: Parser[String] = "\t"
   
   
   final class FieldOps[A](a: Parser[A]) {
