@@ -104,11 +104,11 @@ object Flatten extends App {
     
     val infos: Seq[Info] = params.info map {
       _ flatMap { i => vcfInfo.getTypedMetadata[Info](VcfId(i)) } 
-    } getOrElse vcfInfo.getInfoFields.sortBy(_.id.id)
+    } getOrElse (vcfInfo.metadata.collect { case f: Metadata.Info => f }).sortBy(_.id.id)
     
     val formats: Seq[Format] = params.genotype map {
       _ flatMap { f => vcfInfo.getTypedMetadata[Format](VcfId(f)) }
-    } getOrElse vcfInfo.getFormatFields.sortBy(_.id.id)
+    } getOrElse (vcfInfo.metadata.collect { case f: Metadata.Format => f }).sortBy(_.id.id)
     
     
     // Write out header, unless told not to.

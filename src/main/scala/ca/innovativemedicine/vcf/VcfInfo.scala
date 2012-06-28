@@ -42,17 +42,6 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
    */
   def get(id: VcfId): Option[Either[Sample, Metadata]] =
     getMetadata(id) map (Right(_)) orElse (getSample(id) map (Left(_)))
-   
-  
-  /** Returns a list of all the declared `Info` fields, in order. */ 
-  def getInfoFields: Seq[Info] = metadata collect {
-    case info: Info => info
-  }
-  
-  
-  def getFormatFields: Seq[Format] = metadata collect {
-    case fmt: Format => fmt
-  }
   
   
   /**
@@ -62,10 +51,10 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
   def getTypedMetadata[A <: Metadata](id: VcfId)(implicit A: Manifest[A]): Option[A] = {
     getMetadata(id) flatMap { md =>
       val M = md match {
-    	case _: Format => manifest[Format]
-    	case _: Filter => manifest[Filter]
-    	case _: Info => manifest[Info]
-    	case _: Alt => manifest[Alt]
+      	case _: Format => manifest[Format]
+      	case _: Filter => manifest[Filter]
+      	case _: Info => manifest[Info]
+      	case _: Alt => manifest[Alt]
       }
       
       if (M <:< A) Some(md.asInstanceOf[A]) else None
