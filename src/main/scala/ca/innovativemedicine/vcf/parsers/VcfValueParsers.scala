@@ -14,7 +14,7 @@ import scala.util.matching.Regex
 trait VcfValueParsers extends JavaTokenParsers {
   import Metadata._
   
-  def vcfPositiveInteger = "\\d+".r ^^ { n => VcfInteger(n.toInt) }
+  def vcfNonNegativeInteger = "\\d+".r ^^ { n => VcfInteger(n.toInt) }
   def vcfInteger = wholeNumber ^^ { n => VcfInteger(n.toInt) }
   def vcfFloat = floatingPointNumber ^^ { n => VcfFloat(n.toDouble) }
   def vcfCharacter = ".".r ^^ { c => VcfCharacter(c.charAt(0)) }
