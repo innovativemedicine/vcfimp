@@ -45,7 +45,7 @@ trait VcfParser {
   	      parseMetadata(md :: metadata, it)
   	      
   	    case parser.Success(Left(samples), _) =>
-  	      (samples, metadata)
+  	      (samples, metadata.reverse)
   	      
   	    case error: parser.NoSuccess if skipErrors =>
   	      println("Failed to parse metadata row, skipping:\n%s" format error.toString())		// TODO: LOG!!!
