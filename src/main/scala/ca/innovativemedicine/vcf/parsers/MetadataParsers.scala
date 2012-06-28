@@ -12,10 +12,10 @@ trait MetadataParsers extends TsvParsers {
   
   
   def header: Parser[Either[List[Sample], Metadata]] =
-    (metadata ^^ (Right(_))) | (samples ^^ (Left(_)))
+    (samples ^^ (Left(_))) | (metadata ^^ (Right(_))) 
   
   
-  def metadata: Parser[Metadata] = "##" ~> (version | reference | info | filter | format | alt | unhandled)
+  def metadata: Parser[Metadata] = ("##" ~> (version | reference | info | filter | format | alt | unhandled)) | whitespace
   
   
   def samples: Parser[List[Sample]] =
@@ -32,6 +32,8 @@ trait MetadataParsers extends TsvParsers {
   def reference = "reference=" ~> ".*".r ^^ { Reference(_) }
   
   def unhandled = ".*".r ^^ { Unhandled(_) }
+  
+  def whitespace = "\\s*".r ^^^ Unhandled("")
   
   def info = meta("INFO") { _(id, arity, typed, description) } ^^ {
     case id ~ arity ~ tpe ~ desc =>
@@ -61,7 +63,15 @@ trait MetadataParsers extends TsvParsers {
   
   def numProp(p: String) = (p + "=") ~> wholeNumber
   
-  def quotedProp(p: String) = (p + "=" + "\"") ~> "[^\"]+".r <~ "\""
+  def quotedProp(p: String) = (p + "=" + "\"") ~> """(\\\\|\\"|[^\\"]+)*""".r <~ "\"" ^^ {
+    _.replace("\\\\", "\\").replace("\\\"", "\"")
+  }
+  
+  /*
+  def quotedProp(p: String) = ((p + "=" + "\"") ~> rep(("\\\\" ^^^ "\\") | ("\\\"" ^^^ "\"") | "[^\"]*".r) <~ "\"") ^^ {
+    _ mkString ""
+  }
+  */
   
   def types = ("Integer" | "Float" | "Character" | "String") ^^ {
     case "Integer"   => Type.IntegerType
@@ -79,10 +89,10 @@ trait MetadataParsers extends TsvParsers {
   def arity = "Number=" ~> ( ("A" ^^^ Arity.MatchAlleleCount)
 		  				   | ("G" ^^^ Arity.MatchGenotypeCount)
 		  				   | ("." ^^^ Arity.Variable)
-		  				   | (wholeNumber ^^ { n => Arity.Exact(n.toInt) })
+		  				   | ("\\d+".r ^^ { n => Arity.Exact(n.toInt) })
 		  				   )
   
-  def description = quotedProp("Description") | strProp("Description")
+  def description = quotedProp("Description") // | strProp("Description")
   
   protected final class ArgListBuilder {
     def apply[A](a: Parser[A]): Parser[A] = a
