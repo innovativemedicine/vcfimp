@@ -33,23 +33,30 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   // Parsers for parsing individual fields from the variant-portion of a VCF file row.
   
   
-  def chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | (name ^^ { Right(_) })
+  def chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | ("[^:\\s]+".r ^^ { Right(_) })
   
   def position: Parser[Int] = "\\d+".r ^^ { _.toInt }
   
-  def ids: Parser[List[String]] = repsep("[^\\s;]+".r, ";")
+  def ids: Parser[List[String]] = '.' ^^^ Nil ||| repsep("[^\\s;]+".r, ";")
   
   def ref: Parser[String] = sequence
   
   def alternates: Parser[List[Alternate]] = rep1sep(
-      (sequence ^^ { Right(_) })
+      (breakend ^^ { bnd => Left(Left(bnd)) })
     | (vcfId ^^ { id => Left(Right(id)) })
-    | (breakend ^^ { bnd => Left(Left(bnd)) })
+    | (sequence ^^ { Right(_) })
     , ',') 
   
   def quality: Parser[Double] = floatingPointNumber ^^ { _.toDouble }
   
-  def filters: Parser[FilterResult] = "PASS" ^^^ Pass | repsep("[^\\s;]+", ";") ^^ { Fail(_) }
+  def filterName: Parser[Metadata.Filter] = "[^\\s;]+".r >> { name =>
+    vcfInfo.getTypedMetadata[Metadata.Filter](VcfId(name)) match {
+      case Some(filter) => success(filter)
+      case None => err("Invalid filter <%s>; please define this filter in the VCF metadata" format name)
+    }
+  }
+  
+  def filters: Parser[FilterResult] = "PASS" ^^^ Pass | repsep(filterName, ";") ^^ (Fail(_))
   
   
   // Support/helper parsers.
@@ -59,8 +66,6 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   def optional[A](p: => Parser[A]): Parser[Option[A]] = "." ^^^ None | p ^^ { Some(_) }
   
   def vcfId = "<" ~> ("[^<>]+".r) <~ ">" ^^ { VcfId(_) }
-  
-  def name: Parser[String] = "\\S+".r
   
   def sequence: Parser[String] = "[atcgnATCGN]+".r ^^ { _.toUpperCase() }
   
