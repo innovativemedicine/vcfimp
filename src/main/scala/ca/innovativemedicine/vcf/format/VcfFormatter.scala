@@ -1,4 +1,4 @@
-package format
+package ca.innovativemedicine.vcf.format
 
 import ca.innovativemedicine.vcf._
 

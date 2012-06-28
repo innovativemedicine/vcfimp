@@ -2,12 +2,12 @@ package ca.innovativemedicine.vcf.app
 
 import ca.innovativemedicine.vcf._
 import ca.innovativemedicine.vcf.parsers._
+import ca.innovativemedicine.vcf.format.VcfFormatter
+
 import scopt.immutable._
-import java.io.File
-import java.io.FileOutputStream
-import java.io.PrintWriter
-import format.VcfFormatter
-import java.io.InputStream
+
+import java.io.{ File, FileOutputStream, PrintWriter, InputStream }
+
 
 
 case class FlattenParams(
@@ -64,6 +64,12 @@ final class FlattenOps(
 }
     
 
+/**
+ * This application is used to "flatten" a VCF file. That is, it expands the
+ * INFO fields and the sample data to their own individual columns. To deal
+ * with multiple samples, it can create a new, separate, TSV file for each
+ * sample.
+ */
 object Flatten extends App {
   import Metadata._
   
@@ -81,6 +87,11 @@ object Flatten extends App {
     }
   }
   
+  
+  /**
+   * Returns a `Reader` for a given set of parameters that will output a set of
+   * flattened files.
+   */
   def flatten(params: FlattenParams): VcfParser.Reader[Unit] = (vcfInfo, it) => {
     
     // Each sample is given its own file, suffixed with its 1-based index.
