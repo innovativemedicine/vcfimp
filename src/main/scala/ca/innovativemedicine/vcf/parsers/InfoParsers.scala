@@ -20,6 +20,10 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
   
   def infoField(alleleCount: Int) = "[^=,;]+".r >> { id =>
     vcfInfo.getTypedMetadata[Info](VcfId(id)) match {
+      
+      case Some(info) if info.typed == Type.FlagType =>
+        success(info -> (VcfFlag :: Nil))
+        
       case Some(info) =>
         val p = getParser(info, genotypeCount, alleleCount)
         
