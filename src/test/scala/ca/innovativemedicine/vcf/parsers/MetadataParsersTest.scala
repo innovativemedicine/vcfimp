@@ -131,4 +131,44 @@ class MetadataParsersTest extends FunSuite {
     val p = parser
     assert(p.parseAll(p.description, """Description="asdf\\\""""").get === """asdf\"""")
   }
+  
+  test("INFO is parsed correctly") {
+    val p = parser
+    val info = """INFO=<ID=AA,Number=1,Type=String,Description="Ancestral Allele">"""
+    val exp = Metadata.Info(VcfId("AA"), Arity.Exact(1), Type.StringType, Some("Ancestral Allele"))
+    
+    assert(p.parseAll(p.info, info).get === exp)
+  }
+  
+  test("FILTER is parsed correctly") {
+    val p = parser
+    val ftr = """FILTER=<ID=s50,Description="Less than 50% of samples have data">"""
+    val exp = Metadata.Filter(VcfId("s50"), Some("Less than 50% of samples have data"))
+    
+    assert(p.parseAll(p.filter, ftr).get === exp)
+  }
+  
+  
+  test("FORMAT is parsed correctly") {
+    val p = parser
+    val fmt = """FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">"""
+    val exp = Metadata.Format(VcfId("GQ"), Arity.Exact(1), Type.IntegerType, Some("Genotype Quality"))
+    
+    assert(p.parseAll(p.format, fmt).get === exp)
+  }
+  
+  test("FORMAT cannot be a Flag type") {
+    val p = parser
+    val fmt = """FORMAT=<ID=GQ,Number=1,Type=Flag,Description="Genotype Quality">"""
+    
+    assert(!p.parseAll(p.format, fmt).successful)
+  }
+  
+  test("ALT is parsed correctly") {
+    val p = parser
+    val alt = """ALT=<ID=DEL:INS,Description="Do something">"""
+    val exp = Metadata.Alt(VcfId("DEL:INS"), Some("Do something"))
+    
+    assert(p.parseAll(p.alt, alt).get === exp)
+  }
 }
