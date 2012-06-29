@@ -5,7 +5,7 @@ import AssemblyKeys._
 
 object VcfImpBuild extends Build {
   override lazy val settings = super.settings ++ Seq(
-    organization := "OPGIM, Mount Sinai Hospital",
+    organization := "ca.innovativemedicine",
     name := "VCFImp",
     version := "0.6.0-SNAPSHOT",
     scalaVersion := "2.9.2",
@@ -31,7 +31,7 @@ object VcfImpBuild extends Build {
       binFiles in dist <<= (sourceDirectory in dist) { src => (src / "main"/  "bin" * "*").get },
       dist <<= (distName in dist, distZip in dist, binFiles in dist, outputPath in assembly) map {
         (name, zip, bins, jar) => distTask(name, zip, bins, Seq(jar))
-      }
+      } dependsOn (assembly)
     )
 
     private def distTask(name: String, zip: File, bins: Seq[File], jars: Seq[File]) {
