@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Courtesy of http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+CLASSPATH="$CLASSPATH"
+for JAR in `find $DIR/../lib -iname '*.jar'`; do
+	CLASSPATH="$CLASSPATH:$JAR"
+done
+
+java -cp $CLASSPATH ca.innovativemedicine.vcf.app.Flatten $*
+
