@@ -12,8 +12,4 @@ to simpler TSV files.
 
 vcflatten -i AA:AC:AF -g 'GT;GL' ../chr1.vcf.gz
 
-Build Requirements
-------------------
-
-You will need SBT 0.11.2 to build this, due to the one-jar SBT plugin. Hopefully one-jar will be released for 0.11.3 soon and we can keep on using 0.11.3 again.
 
