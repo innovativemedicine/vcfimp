@@ -3,14 +3,15 @@ package ca.innovativemedicine.vcf.app
 import ca.innovativemedicine.vcf._
 import ca.innovativemedicine.vcf.parsers._
 import ca.innovativemedicine.vcf.format.VcfFormatter
-
 import java.io.{ File, FileOutputStream, PrintWriter, InputStream }
+import scala.annotation.tailrec
 
 
 case class FlattenParams(
     vcfFile: Either[InputStream, File] = Left(System.in),
     prefix: Option[String] = None,
     pattern: String = "%p-%s-%i.tsv",
+    merged: Boolean = false,
     info: Option[List[String]] = None,
     genotype: Option[List[String]] = None,
     skipHeader: Boolean = false,
@@ -81,6 +82,9 @@ Usage: vcflatten [options] <filename>
     -g <keys> | --genotype <keys>
         Specify a colon-separated list of FORMAT IDs to output for each sample from the VCF file.
     
+    --one-file
+        If this flag is set, then only 1 TSV file will be generated for all samples. In addition, this file will have a SAMPLE column which indicates which sample the data belongs to.
+    
     --no-header
         If this flag is set, the TSV header won't be written to any of the output files. 
     
@@ -106,6 +110,7 @@ Usage: vcflatten [options] <filename>
   }
   
   
+  @tailrec
   def parseArgs(params: FlattenParams, args: List[String]): Option[FlattenParams] = args match {
     case Nil =>
       Some(params)
@@ -123,6 +128,9 @@ Usage: vcflatten [options] <filename>
       if (keys == "-") parseArgs(params.copy(genotype = Some(Nil)), args) else {
         parseArgs(params.copy(genotype = Some(keys.split(";").toList)), args)
       }
+      
+    case "--one-file" :: args =>
+      parseArgs(params.copy(merged = true), args)
       
     case "--no-header" :: args =>
       parseArgs(params.copy(skipHeader = true), args)
@@ -147,7 +155,7 @@ Usage: vcflatten [options] <filename>
    */
   def flatten(params: FlattenParams): VcfParser.Reader[Either[String, Unit]] = (vcfInfo, it) => {
     
-    if (params.singleFile && vcfInfo.samples.size > 1) {
+    if (params.singleFile && !params.merged && vcfInfo.samples.size > 1) {
       Left("VCF file contains %d samples, but output filename pattern ('%s') can only be used with 1 sample VCF file." format
           (vcfInfo.samples.size, params.pattern))
           
@@ -155,9 +163,12 @@ Usage: vcflatten [options] <filename>
       
       // Each sample is given its own file, suffixed with its 1-based index.
       
-      val files = vcfInfo.samples.zipWithIndex map { case (s, i) =>
-        new File(params.getOutFile(s.id.id, i))
-      }
+      val files = if (!params.merged) {
+        vcfInfo.samples.zipWithIndex map { case (s, i) =>
+          new File(params.getOutFile(s.id.id, i + 1))
+        }
+      } else List(new File(params.getOutFile("all", 1)))
+      
       val outs = (files map (new PrintWriter(_))).toIndexedSeq
       
       
@@ -177,8 +188,9 @@ Usage: vcflatten [options] <filename>
       
       
       if (!params.skipHeader) {
-        val header = List("#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER") ++
-          (infos map (_.id.id)) ++ (formats map (_.id.id))
+        val fixed = List("#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER")
+        val optmerged = if (params.merged) List("SAMPLE") else Nil
+        val header = fixed ++ (infos map (_.id.id)) ++ optmerged ++ (formats map (_.id.id))
         
         outs foreach { _.println(header mkString "\t") }
       }
@@ -211,13 +223,17 @@ Usage: vcflatten [options] <filename>
         
         // Sample specific fields are gathered, appended, and printed.
         
-        samples.zipWithIndex foreach { case (s, i) =>
-          val gt = (fmts zip s).toMap
+        (samples zip vcfInfo.samples).zipWithIndex foreach { case ((data, sample), i) =>
+          val gt = (fmts zip data).toMap
           val samplecols = formats.toList map (gt get _ map {
             _ map (VcfFormatter formatVcfValue _) mkString ","
           } getOrElse ".")
           
-          outs(i).println((varcols :: samplecols) mkString "\t")
+          if (!params.merged) {
+            outs(i).println((varcols :: samplecols) mkString "\t")
+          } else {
+            outs(0).println((varcols :: sample.id.id :: samplecols) mkString "\t")
+          }
         }
       }
       
