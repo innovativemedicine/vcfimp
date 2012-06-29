@@ -55,12 +55,16 @@ object Flatten extends App {
   
   parseArgs(FlattenParams(), args.toList) map { params =>
 
-    params.vcfFile match {
-      case Right(file) =>
-        VcfParser().parse(file, params.ignoreErrors)(flatten(params))
-        
-      case Left(in) =>
-        VcfParser().parse(in, params.ignoreErrors)(flatten(params))
+    try {
+      params.vcfFile match {
+        case Right(file) =>
+          VcfParser().parse(file, params.ignoreErrors)(flatten(params))
+          
+        case Left(in) =>
+          VcfParser().parse(in, params.ignoreErrors)(flatten(params))
+      }
+    } catch {
+      case VcfParseException(msg) => Left(msg)
     }
     
   } map {
@@ -156,7 +160,7 @@ Usage: vcflatten [options] <filename>
   def flatten(params: FlattenParams): VcfParser.Reader[Either[String, Unit]] = (vcfInfo, it) => {
     
     if (params.singleFile && !params.merged && vcfInfo.samples.size > 1) {
-      Left("VCF file contains %d samples, but output filename pattern ('%s') can only be used with 1 sample VCF file." format
+      Left("VCF file contains %d samples, but output filename pattern ('%s') can only be used with a 1 sample VCF file or in conjunction with --one-file." format
           (vcfInfo.samples.size, params.pattern))
           
     } else {

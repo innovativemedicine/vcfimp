@@ -15,6 +15,11 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
     case md: Metadata with HasID => md.id -> md
   })(collection.breakOut)
   
+  /** Returns the version string, if one exists. */
+  lazy val version: Option[String] = (metadata collect {
+    case Version(version) => version
+  }).lastOption
+  
   
   /** Returns the metadata with ID `id` if it exists, `None` otherwise. */
   def getMetadata(id: VcfId): Option[Metadata with HasID] = metadataLookup get id

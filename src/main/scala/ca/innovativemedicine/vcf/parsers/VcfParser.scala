@@ -117,6 +117,16 @@ trait VcfParser {
   	  val vcfInfo = vcf
   	}
   	
+  	vcf.version map (_.toUpperCase) match {
+  	  case Some(ValidVersion(ver)) =>
+  	  case Some(ver) if skipErrors =>
+  	    // TODO: Log this as a warning.
+  	  case Some(ver) =>
+  	    throw VcfParseException("Expected to find a VCF4.0 or VCF4.1 file, but found %s." format ver)
+  	  case None =>
+  	    // TODO: Log this as a warning.
+  	}
+  	
   	val it = lines flatMap { row =>
   	  parser.parse(parser.row, row) match {
   	    case parser.Success(res, _) =>
@@ -140,6 +150,8 @@ object VcfParser {
   import Metadata._
   
   val RowBufferSize = 1 * 1000 * 1000
+  
+  val ValidVersion = """([vV][cC][fF][vV]?4\.[01])"""r
   
   type Reader[A] = (VcfInfo, Iterator[(Variant, List[Format], List[List[List[VcfValue]]])]) => A
   
