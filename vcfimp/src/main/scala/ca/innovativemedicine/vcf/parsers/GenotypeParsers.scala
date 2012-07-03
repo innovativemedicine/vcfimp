@@ -21,22 +21,63 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
    * The order of the formats and the order of the values in the genotype
    * fields must exactly.
    */
-  def genotypes(genotypeCount: Int, alleleCount: Int): Parser[(List[Format], List[List[List[VcfValue]]])] =
+  def genotypes(alleleCount: Int): Parser[(List[Format], List[List[List[VcfValue]]])] =
     format >> { fmts =>
-      repN(genotypeCount, tab ~> genotype(fmts, genotypeCount, alleleCount)) ^^ { fmts -> _ }
+      repN(vcfInfo.samples.size, tab ~> genotype(fmts, alleleCount)) ^^ { fmts -> _ }
     }
+    
+    
+  protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parsers match {
+    case Nil =>
+      success(List[List[VcfValue]]())
+      
+    case p :: parsers =>
+      parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
+        ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
+      } ^^ { _.reverse }
+  }
   
   
-  def genotype(formats: List[Format], genotypeCount: Int, alleleCount: Int): Parser[List[List[VcfValue]]] = {
-    formats map (getParser(_, genotypeCount, alleleCount)) match {
-      case Nil =>
-        success(List[List[VcfValue]]())
+  def genotype(formats: List[Format], alleleCount: Int): Parser[List[List[VcfValue]]] = {
+    
+    // If any of the formats require the genotype count (Number=G), then we'll
+    // first parse the data while ignoring arity to see if we can determine the
+    // genotype count from the GT field. Once we get this, we then re-parse the
+    // data, using the arity information. If the GT field isn't present, but a
+    // field requiring the genotype count is, then the parse will fail.
+    
+    val gtCountParser: Parser[Option[Int]] = if (formats exists (_.arity == Arity.MatchGenotypeCount)) {
+      formats find (_.id.id == "GT") map { _ =>
+        val parsers = valueParserList(for {
+          fmt <- formats
+        } yield getParser(fmt.copy(arity = Arity.Variable), None, alleleCount))
         
-      case p :: parsers =>
-        parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
-          ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
-        } ^^ { _.reverse }
-    }
+        parsers ^^ { values =>
+          (formats zip values) collectFirst { case (Format(VcfId("GT"), _, _, _), VcfString(gt) :: Nil) =>
+            (gt split "[/|]").size
+          }
+        }
+      } getOrElse (success(None))
+    } else success(None)
+    
+    val gtParser: Option[Int] => Parser[List[List[VcfValue]]] =
+      gtCount => formats map (getParser(_, gtCount, alleleCount)) match {
+        case Nil =>
+          success(List[List[VcfValue]]())
+          
+        case p :: parsers =>
+          parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
+            ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
+          } ^^ { _.reverse }
+      }
+    
+    Parser(in => {
+      gtCountParser(in) match {
+        case Success(gtCount, _) =>
+          gtParser(gtCount)(in)
+        case err: NoSuccess => err
+      }
+    })
   }
   
   

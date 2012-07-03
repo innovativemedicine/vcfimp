@@ -21,13 +21,12 @@ class InfoParsersTest extends FunSuite {
   }
   
   test("valid INFO is parsed correctly") {
-    val info = "F2=1,2.3;IV=1,2,3,4;S1=asdf;CA=a,b,c;IG=2,4;B"
+    val info = "F2=1,2.3;IV=1,2,3,4;S1=asdf;CA=a,b,c;B"
     assert(parser.parseAll(parser.info(3), info).get ===
       Map(f2 -> List(VcfFloat(1), VcfFloat(2.3)),
           iv -> List(VcfInteger(1), VcfInteger(2), VcfInteger(3), VcfInteger(4)),
           s1 -> List(VcfString("asdf")),
           ca -> List(VcfCharacter('a'), VcfCharacter('b'), VcfCharacter('c')),
-          ig -> List(VcfInteger(2), VcfInteger(4)),
           b  -> List(VcfFlag)))
   }
   
@@ -40,7 +39,10 @@ class InfoParsersTest extends FunSuite {
     assert(!parser.parseAll(parser.infoField(2), "F2=1.0").successful)
     assert(!parser.parseAll(parser.infoField(2), "S1=asdf,fdsa").successful)
     assert(!parser.parseAll(parser.infoField(2), "CA=a,b,c").successful)
-    assert(!parser.parseAll(parser.infoField(2), "IG=1").successful)
     assert(!parser.parseAll(parser.infoField(2), "B=0").successful)
+  }
+  
+  test("cannot use MatchGenotypeCount in INFO") {
+    assert(!parser.parseAll(parser.infoField(2), "IG=1").successful)
   }
 }

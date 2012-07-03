@@ -31,6 +31,10 @@ trait VcfValueParsers extends JavaTokenParsers {
     (p ~ repN(n - 1, sep ~> p)) ^^ { case x ~ xs => x :: xs }
   }
   
+  
+  val CatchAllMetadata = Format(VcfId("CATCHALL"), Arity.Variable, Type.StringType, None)
+
+  
   /**
    * Returns a `Parser` that will parse the `=data[,data]` part of an INFO
    * field. It uses the type and arity information from the `VcfInfo` to ensure
@@ -39,7 +43,7 @@ trait VcfValueParsers extends JavaTokenParsers {
    * @param info The metadata INFO field to generate a parser for.
    * @param alleleCount The number of alleles for this variant.
    */
-  def getParser(info: Metadata with HasArity with HasType, genotypeCount: Int, alleleCount: Int): Parser[List[VcfValue]] = {
+  def getParser(info: Metadata with HasArity with HasType, genotypeCount: Option[Int], alleleCount: Int): Parser[List[VcfValue]] = {
     import Arity._
     
   	val valParser: Parser[VcfValue] = info.typed match {
@@ -55,7 +59,7 @@ trait VcfValueParsers extends JavaTokenParsers {
   	    repNsep(alleleCount, valParser, ",")
   	
   	  case MatchGenotypeCount =>
-  	    repNsep(genotypeCount, valParser, ",")
+  	    genotypeCount map (repNsep(_, valParser, ",")) getOrElse err("Cannot get parser with arity G: No genotype information available here.")
   
   	  case Variable =>
   	    repsep(valParser, ",")

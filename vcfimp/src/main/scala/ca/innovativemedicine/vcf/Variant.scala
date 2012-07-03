@@ -24,6 +24,11 @@ case class Variant(
 	  info: Map[Metadata.Info, List[VcfValue]]
     ) {
   require(position > 0)
+  
+  /**
+   * Returns the number of alternate alleles for this variant (ie. the value A in Number=A).
+   */
+  lazy val alleleCount = alternates.size
 }
 
 

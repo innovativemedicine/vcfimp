@@ -14,9 +14,8 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
   
   def vcfInfo: VcfInfo
   
-  // TODO: Handle flags, which may not have the '='.
-
-  private lazy val genotypeCount = vcfInfo.samples.size
+  // TODO: Handle flags, which may not have the '='... though if they have
+  // Number=0, which Flags should, then they will be handled correctly.
   
   def infoField(alleleCount: Int) = "[^=,;]+".r >> { id =>
     vcfInfo.getTypedMetadata[Info](VcfId(id)) match {
@@ -25,7 +24,13 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
         success(info -> (VcfFlag :: Nil))
         
       case Some(info) =>
-        val p = getParser(info, genotypeCount, alleleCount)
+        
+        // FIXME: Currently it is an error to use an INFO field with Number=G,
+        // as I don't have access to this information (hence `None` is passed
+        // to `getParser`). However, the spec isn't clear, and perhaps we are
+        // suppose to assume 2. In lieu of more info, errors are appropriate.
+        
+        val p = getParser(info, None, alleleCount)
         
         (info.arity match {
           case Arity.Exact(n) if n == 0 =>
@@ -44,5 +49,6 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
     }
   }
   
-  def info(alleleCount: Int): Parser[Map[Info, List[VcfValue]]] = repsep(infoField(alleleCount), ';')  ^^ { _.toMap }
+  def info(alleleCount: Int): Parser[Map[Info, List[VcfValue]]] =
+    repsep(infoField(alleleCount), ';')  ^^ { _.toMap }
 }
