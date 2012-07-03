@@ -7,7 +7,7 @@ object VcfImpBuild extends Build {
   override lazy val settings = super.settings ++ Seq(
     organization := "ca.innovativemedicine",
     name := "VCFImp",
-    version := "0.6.0-SNAPSHOT",
+    version := "0.5.1",
     scalaVersion := "2.9.2",
     scalacOptions ++= Seq("-deprecation", "-unchecked", "-optimize"),
     libraryDependencies += "org.scalatest" %% "scalatest" % "1.8" % "test"

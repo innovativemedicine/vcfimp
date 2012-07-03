@@ -125,12 +125,12 @@ Usage: vcflatten [options] <filename>
       
     case ("-i" | "--info") :: keys :: args =>
       if (keys == "-") parseArgs(params.copy(info = Some(Nil)), args) else {
-        parseArgs(params.copy(info = Some(keys.split(":").toList)), args)
+        parseArgs(params.copy(info = Some(keys.split(";").toList)), args)
       }
     
     case ("-g" | "--genotype") :: keys :: args =>
       if (keys == "-") parseArgs(params.copy(genotype = Some(Nil)), args) else {
-        parseArgs(params.copy(genotype = Some(keys.split(";").toList)), args)
+        parseArgs(params.copy(genotype = Some(keys.split(":").toList)), args)
       }
       
     case "--one-file" :: args =>

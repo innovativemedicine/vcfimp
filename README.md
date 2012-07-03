@@ -15,7 +15,7 @@ VCFImp includes a command line tool called vcflatten. This is a command line
 tool for "flattening" a VCF file down to simpler TSV files. An example of its
 use could be:
 
-    $ vcflatten -i AA:AC:AF -g 'GT;GL' ../chr1.vcf.gz
+    $ vcflatten --info 'AA;AC;AF' --genotype GT:GL ../chr1.vcf.gz
 
 This will create a set of new TSV files (1 for each sample), each of which has
 a list of all the variant data, the information with keys AA, AC, AF and the
