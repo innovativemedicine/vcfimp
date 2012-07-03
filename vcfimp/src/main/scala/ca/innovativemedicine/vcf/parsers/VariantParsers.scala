@@ -22,7 +22,7 @@ trait VariantParsers extends TsvParsers with InfoParsers {
     (chromosome & position & ids & ref & alternates & optional(quality) & optional(filters)) >> {
       
   	  case chr ~ pos ~ ids ~ ref ~ alt ~ qual ~ ftr =>
-  	    val alleleCount = 1 + alt.size
+  	    val alleleCount = alt.size
   	    (tab ~> info(alleleCount)) ^^ { infoMap =>
   	      Variant(chr, pos, ids, ref, alt, qual, ftr, infoMap)
   	    }
