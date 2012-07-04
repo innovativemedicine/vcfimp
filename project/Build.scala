@@ -17,7 +17,13 @@ object VcfImpBuild extends Build {
   
   lazy val vcflatten = Project("vcflatten", file("vcflatten")) settings (vcflattenSettings: _*) dependsOn (vcfimp)
 
+  lazy val vcfimpSolr = Project("vcfimp-solr", file("vcfimp-solr")) settings (vcfimpSolrSettings: _*) dependsOn (vcfimp)
+
   def vcflattenSettings = assemblySettings ++ Dist.distSettings
+
+  def vcfimpSolrSettings = Seq(
+    libraryDependencies += "com.typesafe" % "config" % "0.4.1"
+  )
 
   object Dist {
     lazy val dist = TaskKey[Unit]("dist", "Packages up bin files and JARs in a zip.")
