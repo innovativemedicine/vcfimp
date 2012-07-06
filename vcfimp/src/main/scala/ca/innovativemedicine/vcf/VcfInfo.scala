@@ -16,9 +16,19 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
   })(collection.breakOut)
   
   /** Returns the version string, if one exists. */
-  lazy val version: Option[String] = (metadata collect {
-    case Version(version) => version
-  }).lastOption
+  lazy val version: Option[String] = getStringValue[Version]
+  
+  /** Returns the reference genome. */
+  lazy val reference: Option[String] = getStringValue[Reference]
+  
+  
+  def getStringValue[A <: StringMetadata](implicit A: Manifest[A]): Option[String] = {
+    metadata.reverse collectFirst {
+      case Unhandled(x) if manifest[Unhandled] <:< A => x
+      case Version(x) if manifest[Version] <:< A => x
+      case Reference(x) if manifest[Reference] <:< A => x
+    }
+  }
   
   
   /** Returns the metadata with ID `id` if it exists, `None` otherwise. */

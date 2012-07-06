@@ -22,7 +22,11 @@ object VcfImpBuild extends Build {
   def vcflattenSettings = assemblySettings ++ Dist.distSettings
 
   def vcfimpSolrSettings = Seq(
-    libraryDependencies += "com.typesafe" % "config" % "0.4.1"
+    libraryDependencies ++= Seq(
+      "com.typesafe" % "config" % "0.4.1",
+      "org.apache.solr" % "solr-solrj" % "1.4.0",
+      "org.slf4j" % "slf4j-simple" % "1.6.6"
+    )
   )
 
   object Dist {
