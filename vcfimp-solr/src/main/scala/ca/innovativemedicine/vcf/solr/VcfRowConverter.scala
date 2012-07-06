@@ -141,6 +141,24 @@ case class VcfRowConverter(vcfInfo: VcfInfo) {
         }
       }
       
+      (formats zip values) foreach { case (fmt, values) =>
+        import Metadata._
+        
+        fmt match {
+          case Format(id, _, Type.IntegerType, _) =>
+            vdoc.addField("data_i_" + id.id, (values collect { case VcfInteger(x) => x }).asJava)
+            
+          case Format(id, _, Type.FloatType, _) =>
+            vdoc.addField("data_f_" + id.id, (values collect { case VcfFloat(x) => x }).asJava)
+            
+          case Format(id, _, Type.CharacterType, _) =>
+            vdoc.addField("data_s_" + id.id, (values collect { case VcfCharacter(x) => x.toString }).asJava)
+            
+          case Format(id, _, Type.StringType, _) =>
+            vdoc.addField("data_s_" + id.id, (values collect { case VcfString(x) => x }).asJava)
+        }
+      }
+      
       doc
     }
     

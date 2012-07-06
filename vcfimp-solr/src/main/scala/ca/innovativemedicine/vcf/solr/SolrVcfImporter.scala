@@ -29,8 +29,6 @@ object SolrVcfImporter {
 }
 
 
-
-
 trait SolrVcfImporter { self: SolrServerProvider =>
   import SolrVcfImporter._
       
@@ -39,13 +37,13 @@ trait SolrVcfImporter { self: SolrServerProvider =>
     
     parser.parse(file, skipErrors=false) { (vcfInfo, rows) =>
       val converter = new VcfRowConverter(vcfInfo)
-      val docs = rows map ((converter.convert _).tupled) 
       
       withSolrServer(Collection.Variants) { vSolr =>
         withSolrServer(Collection.Calls) { cSolr =>
-          docs foreach { case (vdoc, sdocs) =>
-             vSolr add vdoc
-             sdocs foreach { cSolr add _ }
+          rows map ((converter.convert _).tupled) foreach {
+            case (vdoc, sdocs) =>
+              vSolr add vdoc
+              sdocs foreach { cSolr add _ }
           }
         }
       }
