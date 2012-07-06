@@ -8,13 +8,14 @@ import scala.collection.mutable
 
 
 trait SolrServerProvider {
-  def withSolrServer[A](f: SolrServer => A): A
+  def withSolrServer[A](core: Option[String] = None)(f: SolrServer => A): A
 }
 
 trait ConfiguredSolrServerProvider extends SolrServerProvider { self: Configured =>
   
   private lazy val url = if (config.hasPath("solr.url")) {
-    config.getString("solr.url")
+    val u = config.getString("solr.url")
+    if (u.endsWith("/")) u else (u + "/")
   } else "http://localhost:8080/solr/"
     
   private lazy val queueSize = if (config.hasPath("solr.update.queueSize")) {
@@ -26,8 +27,9 @@ trait ConfiguredSolrServerProvider extends SolrServerProvider { self: Configured
   } else 2
 
   
-  def withSolrServer[A](f: SolrServer => A): A = {
-    val solr = new StreamingUpdateSolrServer(url, queueSize, threads)
+  def withSolrServer[A](core: Option[String] = None)(f: SolrServer => A): A = {
+    val coreUrl = core map (url + _) getOrElse url
+    val solr = new StreamingUpdateSolrServer(coreUrl, queueSize, threads)
     val result = f(solr)
     solr.commit()
     result

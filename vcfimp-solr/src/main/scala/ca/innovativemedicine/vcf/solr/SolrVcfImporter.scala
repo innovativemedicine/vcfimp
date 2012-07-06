@@ -18,6 +18,11 @@ import com.typesafe.config.ConfigFactory
 
 
 object SolrVcfImporter {
+  object Collection {
+    val Calls = Some("calls")
+    val Variants = Some("variants")
+  }
+    
   def apply(): SolrVcfImporter = new SolrVcfImporter with ConfiguredSolrServerProvider with Configured {
     lazy val config = ConfigFactory.load()
   }
@@ -32,8 +37,54 @@ trait SolrVcfImporter { self: SolrServerProvider =>
         throw new IllegalStateException("Missing required ##reference in VCF.")
       }
       
-      val docs: Iterator[SolrInputDocument] = rows flatMap { case (variant, formats, gtData) =>
-        (vcfInfo.samples zip gtData) map { case (sample, values) =>
+      val docs: Iterator[(SolrInputDocument, List[SolrInputDocument])] = rows map { case (variant, formats, gtData) =>
+        val vdoc = new SolrInputDocument()
+        
+        val variantId = ju.UUID.randomUUID().toString
+          
+        val chrom = variant.chromosome.fold(_.id.toString, identity)
+        val alts = variant.alternates map (_.fold(_.fold(_.toBreakendString, _.id.toString), identity))
+        
+        vdoc.addField("id", variantId)
+        
+        vdoc.addField("reference", reference)
+        vdoc.addField("chromosome", chrom)
+        vdoc.addField("position", variant.position)
+        
+        vdoc.addField("ids", variant.ids.asJava)
+        vdoc.addField("ref", variant.reference)
+        vdoc.addField("alts", alts.asJava)
+        variant.quality foreach (vdoc.addField("quality", _))
+        variant.filter foreach {
+          case FilterResult.Pass =>
+            vdoc.addField("filters_failed", new ju.LinkedList[String]())
+          case FilterResult.Fail(filters) =>
+            vdoc.addField("filters_failed", filters.asJava)
+        }
+        
+        variant.info foreach { case (info, values) =>
+          import Metadata._
+          
+          info match {
+            case Info(id, _, Type.IntegerType, _) =>
+              vdoc.addField("info_i_" + id.id, (values collect { case VcfInteger(x) => x }).asJava)
+              
+            case Info(id, _, Type.FloatType, _) =>
+              vdoc.addField("info_f_" + id.id, (values collect { case VcfFloat(x) => x }).asJava)
+              
+            case Info(id, _, Type.CharacterType, _) =>
+              vdoc.addField("info_s_" + id.id, (values collect { case VcfCharacter(x) => x.toString }).asJava)
+              
+            case Info(id, _, Type.StringType, _) =>
+              vdoc.addField("info_s_" + id.id, (values collect { case VcfString(x) => x }).asJava)
+              
+            case Info(id, _, Type.FlagType, _) =>
+              vdoc.addField("info_b_" + id.id, (values collect { case VcfFlag => true }).asJava)
+          }
+        }
+        
+        
+        val sdocs = (vcfInfo.samples zip gtData) map { case (sample, values) =>
           val doc = new SolrInputDocument()
           
           doc.addField("id", ju.UUID.randomUUID().toString)
@@ -41,7 +92,7 @@ trait SolrVcfImporter { self: SolrServerProvider =>
           // Location.
           
           doc.addField("reference", reference)
-          doc.addField("chromosome", variant.chromosome.fold(_.id.toString, identity))
+          doc.addField("chromosome", chrom)
           doc.addField("position", variant.position)
           
           // Sample.
@@ -50,9 +101,10 @@ trait SolrVcfImporter { self: SolrServerProvider =>
           
           // Variant.
           
+          doc.addField("variant", variantId)
           doc.addField("v_ids", variant.ids.asJava)
           doc.addField("v_ref", variant.reference)
-          doc.addField("v_alt", variant.alternates map (_.fold(_.fold(_.toBreakendString, _.id.toString), identity)))
+          doc.addField("v_alt", alts.asJava)
           variant.quality foreach (doc.addField("v_quality", _))
           variant.filter foreach {
             case FilterResult.Pass =>
@@ -83,10 +135,19 @@ trait SolrVcfImporter { self: SolrServerProvider =>
           
           doc
         }
+        
+        (vdoc, sdocs)
       }
       
-      withSolrServer { solr =>
-        docs foreach { solr add _ }
+      import SolrVcfImporter._
+      
+      withSolrServer(Collection.Variants) { vSolr =>
+        withSolrServer(Collection.Calls) { cSolr =>
+          docs foreach { case (vdoc, sdocs) =>
+             vSolr add vdoc
+             sdocs foreach { cSolr add _ }
+          }
+        }
       }
     }
   }
