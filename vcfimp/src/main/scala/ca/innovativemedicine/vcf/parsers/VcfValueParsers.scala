@@ -22,7 +22,10 @@ trait VcfValueParsers extends JavaTokenParsers {
   def vcfFlag = success(VcfFlag)
   
   
-  
+  /**
+   * Like repsep, but specifies the exact number expected. I am not sure why
+   * this was omitted from `scala.util.parsing.combinator.Parsers`.
+   */
   def repNsep[A](n: Int, p: => Parser[A], sep: => Parser[Any]): Parser[List[A]] = if (n == 0) {
     success(Nil)
   } else if (n == 1) {
@@ -32,15 +35,19 @@ trait VcfValueParsers extends JavaTokenParsers {
   }
   
   
-  val CatchAllMetadata = Format(VcfId("CATCHALL"), Arity.Variable, Type.StringType, None)
-
-  
   /**
    * Returns a `Parser` that will parse the `=data[,data]` part of an INFO
    * field. It uses the type and arity information from the `VcfInfo` to ensure
    * correctness and will report an error otherwise.
    * 
+   * This can optionally take the ploidy (genotypeCount) and the number of
+   * alternate alleles. The ploidy would only be available for a sample AND if
+   * the GT field is present. If the `Arity` of `info` is `MatchGenotypeCount`
+   * and `genotypeCount` is `None`, then this will result in a `Parser` that
+   * always fails (and helpfully indicates that not genotype info was present).
+   * 
    * @param info The metadata INFO field to generate a parser for.
+   * @param genotypeCount An optional "genotype" count (the ploidy).
    * @param alleleCount The number of alleles for this variant.
    */
   def getParser(info: Metadata with HasArity with HasType, genotypeCount: Option[Int], alleleCount: Int): Parser[List[VcfValue]] = {
@@ -49,7 +56,10 @@ trait VcfValueParsers extends JavaTokenParsers {
   	val valParser: Parser[VcfValue] = info.typed match {
   	  case Type.IntegerType => vcfInteger
   	  case Type.FloatType => vcfFloat
-  	  case Type.StringType => vcfString("[^,;:]*".r)
+  	  case Type.StringType => vcfString(info match {
+  	      case _: Info => "[^,;\\t]*".r
+  	      case _: Format => "[^,:\\t]*".r
+  	    })
   	  case Type.CharacterType => vcfCharacter
   	  case Type.FlagType => vcfFlag
   	}

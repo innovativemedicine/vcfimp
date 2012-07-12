@@ -12,9 +12,9 @@ import scala.util.parsing.combinator.JavaTokenParsers
  */
 trait TsvParsers extends JavaTokenParsers {
   
-  // Omit tabs from normal whitespace skips.
+  // Omit tabs, new lines, and carriage returns from normal whitespace skips.
   
-  override protected val whiteSpace = """[ \n\x0B\f\r]""".r
+  override protected val whiteSpace = """[ \x0B\f]""".r
   
   protected val tab: Parser[String] = "\t"
   
@@ -25,4 +25,16 @@ trait TsvParsers extends JavaTokenParsers {
   }
   
   implicit def FieldOps[A](a: Parser[A]) = new FieldOps(a)
+  
+  def field: Parser[String] = """[^\t]*""".r
+  
+  def skip(n: Int): Parser[Unit] = n match {
+    case 0 => success(())
+    case 1 => field ^^^ ()
+    case n if n > 0 => (field ~> repN(n, tab ~> field)) ^^^ ()
+    case _ =>
+      throw new IllegalArgumentException("skip(n) only takes positive integers.")
+  }
+  
+  def allFields: Parser[List[String]] = repsep(field, tab)
 }

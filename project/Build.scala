@@ -19,7 +19,11 @@ object VcfImpBuild extends Build {
 
   lazy val vcfimpSolr = Project("vcfimp-solr", file("vcfimp-solr")) settings (vcfimpSolrSettings: _*) dependsOn (vcfimp)
 
+  lazy val merge = Project("annovar", file("annovar")) settings (mergeSettings: _*) dependsOn (vcfimp)
+
   def vcflattenSettings = assemblySettings ++ Dist.distSettings
+
+  def mergeSettings = assemblySettings ++ Dist.distSettings 
 
   def vcfimpSolrSettings = Seq(
     libraryDependencies ++= Seq(
