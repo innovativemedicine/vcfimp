@@ -252,7 +252,7 @@ if [ -n "$GENE_NAMES" ]; then
 fi
 
 if [ -n "$SIFT" ]; then
-	$ANNOTATE --filter --dbtype avsift --outfile $WORK/sift $ANNOVAR_INPUT $HUMANDB
+	$ANNOTATE --filter --dbtype avsift --sift_threshold 0 --outfile $WORK/sift $ANNOVAR_INPUT $HUMANDB
 	PATCH_VCF_OPTS="$PATCH_VCF_OPTS --patch $DIR/patch/sift.vcfpatch $WORK/sift.hg19_avsift_dropped"
 fi
 
