@@ -11,7 +11,7 @@ trait DataParsers extends VariantParsers with GenotypeParsers {
    * the list of genotype formats, and the actual list of genotype information
    * for each sample.
    */
-  def row: Parser[(Variant, List[Format], List[List[List[VcfValue]]])] =
+  lazy val row: Parser[(Variant, List[Format], List[List[List[VcfValue]]])] =
     variant >> { variant =>
       tab ~> genotypes(variant.alleleCount) ^^ {
         case (fmts, gts) =>

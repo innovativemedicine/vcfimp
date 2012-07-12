@@ -81,7 +81,7 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
   }
   
   
-  def format: Parser[List[Format]] = repsep("[a-zA-Z0-9]+".r, ':') >> { ids =>
+  lazy val format: Parser[List[Format]] = repsep("[a-zA-Z0-9]+".r, ':') >> { ids =>
     val res = ids.foldLeft(Right(Nil): Either[List[String], List[Format]]) {
       case (Right(fmts), id) =>
         vcfInfo.getTypedMetadata[Format](VcfId(id)) map (f => Right(f :: fmts)) getOrElse (Left(id :: Nil))

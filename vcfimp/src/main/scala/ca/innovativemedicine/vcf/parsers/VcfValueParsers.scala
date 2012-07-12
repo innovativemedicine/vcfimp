@@ -14,12 +14,12 @@ import scala.util.matching.Regex
 trait VcfValueParsers extends JavaTokenParsers {
   import Metadata._
   
-  def vcfNonNegativeInteger = "\\d+".r ^^ { n => VcfInteger(n.toInt) }
-  def vcfInteger = wholeNumber ^^ { n => VcfInteger(n.toInt) }
-  def vcfFloat = floatingPointNumber ^^ { n => VcfFloat(n.toDouble) }
-  def vcfCharacter = ".".r ^^ { c => VcfCharacter(c.charAt(0)) }
+  val vcfNonNegativeInteger = "\\d+".r ^^ { n => VcfInteger(n.toInt) }
+  val vcfInteger = wholeNumber ^^ { n => VcfInteger(n.toInt) }
+  val vcfFloat = floatingPointNumber ^^ { n => VcfFloat(n.toDouble) }
+  val vcfCharacter = ".".r ^^ { c => VcfCharacter(c.charAt(0)) }
   def vcfString(pattern: Regex) = pattern ^^ { VcfString(_) }
-  def vcfFlag = success(VcfFlag)
+  val vcfFlag = success(VcfFlag)
   
   
   /**
@@ -33,6 +33,7 @@ trait VcfValueParsers extends JavaTokenParsers {
   } else {
     (p ~ repN(n - 1, sep ~> p)) ^^ { case x ~ xs => x :: xs }
   }
+  
   
   
   /**

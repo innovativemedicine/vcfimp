@@ -26,7 +26,7 @@ trait TsvParsers extends JavaTokenParsers {
   
   implicit def FieldOps[A](a: Parser[A]) = new FieldOps(a)
   
-  def field: Parser[String] = """[^\t]*""".r
+  protected val field: Parser[String] = """[^\t]*""".r
   
   def skip(n: Int): Parser[Unit] = n match {
     case 0 => success(())
@@ -36,5 +36,5 @@ trait TsvParsers extends JavaTokenParsers {
       throw new IllegalArgumentException("skip(n) only takes positive integers.")
   }
   
-  def allFields: Parser[List[String]] = repsep(field, tab)
+  val allFields: Parser[List[String]] = repsep(field, tab)
 }

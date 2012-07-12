@@ -18,7 +18,7 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   // Parsers for parsing a whole variant from a row of a VCF file.
   
   
-  def variant: Parser[Variant] =
+  lazy val variant: Parser[Variant] =
     (chromosome & position & ids & ref & alternates & optional(quality) & optional(filters)) >> {
       
   	  case chr ~ pos ~ ids ~ ref ~ alt ~ qual ~ ftr =>
@@ -33,30 +33,30 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   // Parsers for parsing individual fields from the variant-portion of a VCF file row.
   
   
-  def chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | ("[^:\\s]+".r ^^ { Right(_) })
+  lazy val chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | ("[^:\\s]+".r ^^ { Right(_) })
   
-  def position: Parser[Int] = "\\d+".r ^^ { _.toInt }
+  lazy val position: Parser[Int] = "\\d+".r ^^ { _.toInt }
   
-  def ids: Parser[List[String]] = '.' ^^^ Nil ||| repsep("[^\\s;]+".r, ";")
+  lazy val ids: Parser[List[String]] = '.' ^^^ Nil ||| repsep("[^\\s;]+".r, ";")
   
-  def ref: Parser[String] = sequence
+  lazy val ref: Parser[String] = sequence
   
-  def alternates: Parser[List[Alternate]] = rep1sep(
+  lazy val alternates: Parser[List[Alternate]] = rep1sep(
       (breakend ^^ { bnd => Left(Left(bnd)) })
     | (vcfId ^^ { id => Left(Right(id)) })
     | (sequence ^^ { Right(_) })
     , ',') 
   
-  def quality: Parser[Double] = floatingPointNumber ^^ { _.toDouble }
+  lazy val quality: Parser[Double] = floatingPointNumber ^^ { _.toDouble }
   
-  def filterName: Parser[Metadata.Filter] = "[^\\s;]+".r >> { name =>
+  lazy val filterName: Parser[Metadata.Filter] = "[^\\s;]+".r >> { name =>
     vcfInfo.getTypedMetadata[Metadata.Filter](VcfId(name)) match {
       case Some(filter) => success(filter)
       case None => err("Invalid filter <%s>; please define this filter in the VCF metadata" format name)
     }
   }
   
-  def filters: Parser[FilterResult] = "PASS" ^^^ Pass | repsep(filterName, ";") ^^ (Fail(_))
+  lazy val filters: Parser[FilterResult] = "PASS" ^^^ Pass | repsep(filterName, ";") ^^ (Fail(_))
   
   
   // Support/helper parsers.
@@ -65,13 +65,13 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   /** Indicates a value can be replaced with the "missing value" (ie. '.'). */
   def optional[A](p: => Parser[A]): Parser[Option[A]] = "." ^^^ None | p ^^ { Some(_) }
   
-  def vcfId = "<" ~> ("[^<>]+".r) <~ ">" ^^ { VcfId(_) }
+  lazy val vcfId = "<" ~> ("[^<>]+".r) <~ ">" ^^ { VcfId(_) }
   
-  def sequence: Parser[String] = "[atcgnATCGN]+".r ^^ { _.toUpperCase() }
+  lazy val sequence: Parser[String] = "[atcgnATCGN]+".r ^^ { _.toUpperCase() }
   
-  def chromosomePosition: Parser[Chromosome ~ Int] = (chromosome <~ ':') ~ position
+  lazy val chromosomePosition: Parser[Chromosome ~ Int] = (chromosome <~ ':') ~ position
   
-  def breakend: Parser[Breakend] = (sequence ~ ("[" ~> chromosomePosition <~ "[") ^^
+  lazy val breakend: Parser[Breakend] = (sequence ~ ("[" ~> chromosomePosition <~ "[") ^^
 								     { case s ~ (c ~ p) => Breakend(s, c, p, JoinAfter) }
   
 								   | ("]" ~> chromosomePosition <~ "]") ~ sequence ^^
