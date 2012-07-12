@@ -74,12 +74,9 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       gtCount => cache.getOrElseUpdate((formats, gtCount, alleleCount),
           valueParserList(formats map (getParser(_, gtCount, alleleCount))))
     
-    Parser(in => {
-      gtCountParser(in) match {
-        case Success(gtCount, _) =>
-          gtParser(gtCount)(in)
-        case err: NoSuccess => err
-      }
+    Parser(in => gtCountParser(in) match {
+      case Success(gtCount, _) => gtParser(gtCount)(in)
+      case err: NoSuccess => err
     })
   }
   
