@@ -1,0 +1,6 @@
+##INFO=<ID=GENE_FUNCTION,Number=.,Type=String,Description="Indicates how this variation affects the gene.">
+#TYPE	ID	COL
+VCF	.	8
+INFO	GENE_FUNCTION	1
+
+

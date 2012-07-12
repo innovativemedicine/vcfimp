@@ -1,0 +1,8 @@
+##INFO=<ID=GENE,Number=.,Type=String,Description="Name of possible gene affected by variation.">
+##INFO=<ID=GENE_REGION,Number=.,Type=String,Description="Region of the gene the variation falls in.">
+#TYPE	ID	COL
+VCF	.	7
+INFO	GENE	1
+INFO	GENE_REGION	0
+
+

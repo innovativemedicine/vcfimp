@@ -19,7 +19,7 @@ object VcfImpBuild extends Build {
 
   lazy val vcfimpSolr = Project("vcfimp-solr", file("vcfimp-solr")) settings (vcfimpSolrSettings: _*) dependsOn (vcfimp)
 
-  lazy val merge = Project("annovar", file("annovar")) settings (mergeSettings: _*) dependsOn (vcfimp)
+  lazy val merge = Project("annovcf", file("annovcf")) settings (mergeSettings: _*) dependsOn (vcfimp)
 
   def vcflattenSettings = assemblySettings ++ Dist.distSettings
 
@@ -38,19 +38,40 @@ object VcfImpBuild extends Build {
     lazy val distName = SettingKey[String]("dist-name", "Name of the dist zip file without the .zip.")
     lazy val distZip = SettingKey[File]("dist-zip", "Zip file to save dist to.")
     lazy val binFiles = SettingKey[Seq[File]]("dist-bin-files", "The bin files to include in bin/.")
+    lazy val distFiles = SettingKey[Seq[File]]("dist-extra-files", "Extra files to include the root of the dist ZIP.")
 
     lazy val distSettings = Seq(
       distName in dist <<= (name, version) { (name, version) => name + "-" + version },
       distZip in dist <<= (target in dist, distName in dist) { (t, n) => t / (n + ".zip") },
       binFiles in dist <<= (sourceDirectory in dist) { src => (src / "main"/  "bin" * "*").get },
-      dist <<= (distName in dist, distZip in dist, binFiles in dist, outputPath in assembly) map {
-        (name, zip, bins, jar) => distTask(name, zip, bins, Seq(jar))
+      distFiles in dist <<= (sourceDirectory in dist) { src => (src / "main" / "dist" ** "*").get },
+      dist <<= (distName in dist,
+                distZip in dist,
+                sourceDirectory in dist,
+                binFiles in dist,
+                distFiles in dist,
+                outputPath in assembly) map {
+        (name, zip, src, bins, extra, jar) =>
+
+          distTask(name, zip, src, bins, extra, Seq(jar))
+
       } dependsOn (assembly)
     )
 
-    private def distTask(name: String, zip: File, bins: Seq[File], jars: Seq[File]) {
+    def removeParent(parent: File, file: File): Option[String] =
+      if (file.getCanonicalPath().startsWith(parent.getCanonicalPath() + "/")) {
+        Some(file.getCanonicalPath().substring(parent.getCanonicalPath().size + 1))
+      } else {
+        None
+      }
+
+    private def distTask(name: String, zip: File, src: File, bins: Seq[File], extra: Seq[File], jars: Seq[File]) {
       IO.withTemporaryDirectory { dir =>
+        val extraSrc = new File(src, "main/dist")
         val files = (bins map { f => f -> (name + "/bin/" + f.getName()) }) ++
+                    (extra map { f => f -> removeParent(extraSrc, f) } collect {
+                        case (f, Some(path)) => f -> (name + "/" + path)
+                      }) ++
                     (jars map { f => f -> (name + "/lib/" + f.getName()) })
         IO.zip(files, zip)
       }

@@ -1,0 +1,5 @@
+##INFO=<ID=SIFT,Number=1,Type=Float,Description="SIFT score.">
+#TYPE	ID	COL
+VCF	.	7
+INFO	SIFT	1
+

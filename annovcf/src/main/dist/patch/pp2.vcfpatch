@@ -1,0 +1,5 @@
+##INFO=<ID=PP2,Number=1,Type=Float,Description="Polyphen 2 score.">
+#TYPE	ID	COL
+VCF	.	7
+INFO	PP2	1
+

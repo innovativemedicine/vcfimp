@@ -1,0 +1,266 @@
+#!/bin/bash
+#
+# annovcf - A tool for annotation VCF with ANNOVAR.
+#
+# Uses ANNOVAR to annotate variants in a VCF file, then mixes those annotations
+# back into the VCF in the INFO and FILTER fields.
+#
+# -- Tom Switzer
+#
+# Help: info@innovativemedicine.ca
+#
+
+# Courtesy of http://stackoverflow.com/a/246128/220672
+DIR="$( cd -P "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+
+# Like echo, but outputs to STDERR.
+errcho() { echo "$@" 1>&2; }
+
+# A short message that tells people how to get a longer help screen. This is
+# suppose to be used where the user ran the program "correctly", but there was
+# a more "subtle" error, such as file permissions. In this case, showing the
+# usage screen probably won't help much.
+help() {
+	errcho "For help, run: $0 --help"
+	errcho
+}
+
+#Displays the usage.
+usage() {
+	errcho "Usage: $0 [options] [annotations] <input VCF> [output VCF]"
+	errcho
+	errcho "Options:"
+	errcho
+	errcho "  --output <file>"
+	errcho "  -o <file>          Store output VCF in <file>."
+	errcho
+	errcho "  --input <file>"
+	errcho "  -i <file>          Annotate the VCF file <file>."
+	errcho
+	errcho "  --work <dir>       Store working files in <dir>."
+	errcho
+	errcho "  --annovar <dir>    Use ANNOVAR installed in <dir>."
+	errcho
+	errcho "  --humandb <dir>    Use <dir> for ANNOVAR DB files."
+	errcho
+	errcho "ANNOVAR Annotations:"
+	errcho
+	errcho "  --all              Default. Same as --gene --sift --pp2."
+	errcho
+	errcho "  --gene             Add genes affected to variants."
+	errcho
+	errcho "  --sift             Add SIFT scores to variants."
+	errcho
+	errcho "  --pp2              Add PolyPhen scores to variants."
+	errcho
+	errcho "You can omit the output VCF file if you wish to output to STDOUT."
+	errcho "Input files can be gzipped."
+	errcho
+}
+
+
+if [ -z "$1" ]; then
+	usage
+	exit 1
+fi
+
+
+# Default to running all annotations.
+ALL=true
+
+while [ -n "$1" ]; do
+	case "$1" in
+		-h | --help )
+			usage
+			exit 1
+			;;
+		--work )
+			WORK="$2"
+			shift 2
+			;;
+		--humandb )
+			HUMANDB="$2"
+			shift 2
+			;;
+		--annovar )
+			ANNOVAR="$2"
+			shift 2
+			;;
+		--gene )
+			ALL=""
+			GENE_NAMES=true
+			shift
+			;;
+		--sift )
+			ALL=""
+			SIFT=true
+			shift
+			;;
+		--pp2 | --polyphen )
+			ALL=""
+			PP2=true
+			shift
+			;;
+		-i | --input )
+			IN_VCF="$2"
+			shift 2
+			;;
+		-o | --output )
+			OUT_VCF="$2"
+			shift 2
+			;;
+		* )
+			if [ -z "$IN_VCF" ]; then
+				IN_VCF="$1"
+			elif [ -z "$OUT_VCF" ]; then
+				OUT_VCF="$1"
+			else
+				errcho "Too many arguments provided."
+				usage
+				exit 2
+			fi
+			shift
+			;;
+	esac
+done
+
+
+if [ -z "$IN_VCF" ]; then
+	errcho "No input VCF file was given."
+	errcho
+	usage
+	exit 2
+fi
+
+if [ ! -r "$IN_VCF" ]; then
+	errcho "Cannot read the input VCF file:"
+	errcho "$IN_VCF"
+	errcho
+	help
+	exit 2
+fi
+
+
+# Easiest is just to sym-link a directory in $DIR to ANNOVAR. Another option is
+# to put the annovar directory in your PATH.
+if [ -z "$ANNOVAR" ] && [ -n "`which annotate_variation.pl`" ]; then
+	ANNOVAR="$(cd -P "$(dirname "$(which annotate_variation.pl)")" && pwd)"
+fi
+
+if [ -z "$ANNOVAR" ]; then
+	ANNOVAR=$DIR/annovar
+fi
+
+if [ ! -e "$ANNOVAR/annotate_variation.pl" ]; then
+	errcho "Cannot find ANNOVAR ($ANNOVAR)."
+	errcho "Make sure that annotate_variation.pl is on your path"
+	errcho "            OR ANNOVAR is installed in $DIR/annovar"
+	errcho "            OR you use the --annovar <dir> command line switch."
+	errcho
+	help
+	exit 2
+fi
+
+
+if [ -z "$HUMANDB" ]; then
+	HUMANDB=$ANNOVAR/humandb
+fi
+
+if [ ! -d "$HUMANDB" ]; then
+	errcho "Cannot read the ANNOVAR database files:"
+	errcho "$HUMANDB"
+	errcho
+	help
+	exit 2
+fi
+
+if [ -n "$ALL" ]; then
+	GENE_NAMES=true
+	SIFT=true
+	PP2=true
+fi
+
+
+# Working files, error handling, and cleanup.
+
+set -e
+
+TMPDIR=`mktemp -d -t vcf-annovar`
+trap 'kill $(jobs -p) 0' SIGINT SIGTERM EXIT
+trap "rm -rf $TMPDIR" SIGINT SIGTERM EXIT
+
+
+# Unless specified (with --work <dir>), we use $TMPDIR to store working files.
+test -n "$WORK" && mkdir -p "$WORK"
+if [ ! -d "$WORK" ]; then
+	WORK="$TMPDIR"
+fi
+
+
+# Set variables for common commands.
+
+CONVERT="perl $ANNOVAR/convert2annovar.pl -format vcf4 --includeinfo"
+ANNOTATE="perl $ANNOVAR/annotate_variation.pl --buildver hg19"
+CLASSPATH="$CLASSPATH"
+for JAR in `find $DIR/lib -iname '*.jar'`; do
+	CLASSPATH="$CLASSPATH:$JAR"
+done
+PATCH_VCF="java -cp $CLASSPATH ca.innovativemedicine.vcf.app.AnnovarPatcher"
+
+# This may be updated if IN_VCF is gzipped (ANNOVAR expects uncompressed VCFs).
+VCF_FILE=$IN_VCF
+
+ANNOVAR_INPUT=$WORK/$1.annovar_input
+
+
+# If the VCF is gzipped, then we gunzip it to a named pipe so annovar can
+# convert it.
+
+# TODO: We should really do cut -f -10 on all VCFs, regardless.
+
+if [ "`file -b $IN_VCF | grep -i gzip`" != "" ]; then
+	TMPFILE="$TMPDIR/`basename $VCF_FILE`.plain"
+	mkfifo $TMPFILE
+	gunzip -c "$VCF_FILE" | cut -f -10 > $TMPFILE &
+	VCF_FILE="$TMPFILE"
+fi
+
+
+# TODO Read vcf and see if hg18 or hg19?
+
+
+# Convert VCF file to ANNOVAR's required variant format.
+
+$CONVERT $VCF_FILE > $ANNOVAR_INPUT
+
+# ANNOTATE the variations.
+
+PATCH_VCF_OPTS=""
+if [ -n "$OUT_VCF" ]; then
+	PATCH_VCF_OPTS="--output \"$OUT_VCF\""
+fi
+
+
+if [ -n "$GENE_NAMES" ]; then
+	$ANNOTATE --geneanno --outfile $WORK/gene $ANNOVAR_INPUT $HUMANDB
+	PATCH_VCF_OPTS="$PATCH_VCF_OPTS --patch $DIR/patch/vf.vcfpatch $WORK/gene.variant_function"
+	PATCH_VCF_OPTS="$PATCH_VCF_OPTS --patch $DIR/patch/exonic_vf.vcfpatch $WORK/gene.exonic_variant_function"
+fi
+
+if [ -n "$SIFT" ]; then
+	$ANNOTATE --filter --dbtype avsift --outfile $WORK/sift $ANNOVAR_INPUT $HUMANDB
+	PATCH_VCF_OPTS="$PATCH_VCF_OPTS --patch $DIR/patch/sift.vcfpatch $WORK/sift.hg19_avsift_dropped"
+fi
+
+
+if [ -n "$PP2" ]; then
+	$ANNOTATE --filter --dbtype ljb_pp2 --outfile $WORK/pp2 $ANNOVAR_INPUT $HUMANDB
+	PATCH_VCF_OPTS="$PATCH_VCF_OPTS --patch $DIR/patch/pp2.vcfpatch $WORK/pp2.hg19_ljb_pp2_dropped"
+fi
+
+
+
+# We work with the original VCF again.
+$PATCH_VCF $IN_VCF $PATCH_VCF_OPTS
+
+
