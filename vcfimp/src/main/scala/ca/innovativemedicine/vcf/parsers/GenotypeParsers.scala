@@ -70,18 +70,9 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       } getOrElse (success(None))
     } else success(None)
     
-    val gtParser: Option[Int] => Parser[List[List[VcfValue]]] = gtCount =>
-      cache.getOrElseUpdate((formats, gtCount, alleleCount), {
-        formats map (getParser(_, gtCount, alleleCount)) match {
-          case Nil =>
-            success(List[List[VcfValue]]())
-            
-          case p :: parsers =>
-            parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
-              ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
-            } ^^ { _.reverse }
-        }
-      })
+    val gtParser: Option[Int] => Parser[List[List[VcfValue]]] =
+      gtCount => cache.getOrElseUpdate((formats, gtCount, alleleCount),
+          valueParserList(formats map (getParser(_, gtCount, alleleCount))))
     
     Parser(in => {
       gtCountParser(in) match {
