@@ -11,47 +11,28 @@ that the correct *arity* is being adhered to.
 vcflatten
 ---------
 
-VCFImp includes a command line tool called vcflatten. This is a command line
-tool for "flattening" a VCF file down to simpler TSV files. An example of its
-use could be:
+This is a command line tool for "flattening" a VCF (4+) file down to simpler TSV
+files. Essentially, it takes the information from the INFO column and from the
+sample columns and spreads them out into their own, separate columns.
 
-    $ vcflatten --info 'AA;AC;AF' --genotype GT:GL ../chr1.vcf.gz
+Check out [our documentation page on the web site](http://innovativemedicine.ca/tools/vcflatten)
+for more info.
 
-This will create a set of new TSV files (1 for each sample), each of which has
-a list of all the variant data, the information with keys AA, AC, AF and the
-GT and GL genotype data. These are all in separate columns of the TSV.
+annovcf
+-------
 
-Essentially, it takes the information from the INFO column and from the sample
-columns and spreads them out into their own, separate columns. By default, it
-will create a separate file for each sample (output TSV file names can be
-customized using the `--pattern` command line switch).
+This is a command-line tool that automates the merging of ANNOVAR variation
+annotation into a VCF file. It will put the annotations into the appropriate
+VCF field (eg. INFO field) and create the necessary metadata at the top of the
+VCF file.
 
-You can also generate 1 big file for all samples using the `--one-file` switch.
-It'll create a row for each variant and sample (so a VCF file with 100 variants
-and 10 samples, will produce a TSV with 100 * 10 = 1000 rows). An additional
-column will also be inserted, which indicates which sample that rows data
-pertain to.
+Check out [our documentation page on the web site](http://innovativemedicine.ca/tools/annovcf)
+for more info.
 
-To get more information on using `vcflatten`, run:
+vcfimp-solr
+-----------
 
-    $ vcflatten -h
-
-### Installing
-
-*Warning:* This assumes you are using a unix-like environment and are
-comfortable with a shell. Moreover, the vcflatten shell script in the ZIP file
-requires BASH.
-
-You can install vcflatten by either creating a distribution .zip from the
-source or by downloading a released version as a .zip file.
-
-    $ wget https://github.com/downloads/innovativemedicine/vcfimp/vcflatten-0.5.0.zip
-    $ unzip vcflatten-0.5.0.zip
-    $ chmod +x vcflatten-0.5.0/bin/vcflatten
-    $ ./vcflatten-0.5.0/bin/vcflatten -h
-
-If you plan on using the tool often, you should add vcflatten-0.5.0/bin to your
-path.
+This is a set of classes for importing a VCF file into Solr.
 
 Building VCFImp
 ---------------
