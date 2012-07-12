@@ -4,6 +4,8 @@ import scala.util.parsing.combinator.JavaTokenParsers
 import ca.innovativemedicine.vcf._
 import scala.util.matching.Regex
 
+import scala.collection.mutable
+
 
 /**
  * Provides a set of parsers for parsing VCF values, such as Integers, Floats,
@@ -35,6 +37,11 @@ trait VcfValueParsers extends JavaTokenParsers {
   }
   
   
+  type MetadataKey = (Metadata with HasArity with HasType, Option[Int], Int)
+  
+  private var cache: mutable.Map[MetadataKey, Parser[List[VcfValue]]] =
+    new mutable.HashMap[MetadataKey, Parser[List[VcfValue]]] with mutable.SynchronizedMap[MetadataKey, Parser[List[VcfValue]]]
+  
   
   /**
    * Returns a `Parser` that will parse the `=data[,data]` part of an INFO
@@ -54,29 +61,31 @@ trait VcfValueParsers extends JavaTokenParsers {
   def getParser(info: Metadata with HasArity with HasType, genotypeCount: Option[Int], alleleCount: Int): Parser[List[VcfValue]] = {
     import Arity._
     
-  	val valParser: Parser[VcfValue] = info.typed match {
-  	  case Type.IntegerType => vcfInteger
-  	  case Type.FloatType => vcfFloat
-  	  case Type.StringType => vcfString(info match {
-  	      case _: Info => "[^,;\\t]*".r
-  	      case _: Format => "[^,:\\t]*".r
-  	    })
-  	  case Type.CharacterType => vcfCharacter
-  	  case Type.FlagType => vcfFlag
-  	}
-  	  
-  	info.arity match {
-  	  case MatchAlleleCount =>
-  	    repNsep(alleleCount, valParser, ",")
-  	
-  	  case MatchGenotypeCount =>
-  	    genotypeCount map (repNsep(_, valParser, ",")) getOrElse err("Cannot get parser with arity G: No genotype information available here.")
-  
-  	  case Variable =>
-  	    repsep(valParser, ",")
-  
-  	  case Exact(n) =>
-  	    repNsep(n, valParser, ",")
-  	}
+    cache.getOrElseUpdate((info, genotypeCount, alleleCount), {
+    	val valParser: Parser[VcfValue] = info.typed match {
+    	  case Type.IntegerType => vcfInteger
+    	  case Type.FloatType => vcfFloat
+    	  case Type.StringType => vcfString(info match {
+    	      case _: Info => "[^,;\\t]*".r
+    	      case _: Format => "[^,:\\t]*".r
+    	    })
+    	  case Type.CharacterType => vcfCharacter
+    	  case Type.FlagType => vcfFlag
+    	}
+    	  
+    	info.arity match {
+    	  case MatchAlleleCount =>
+    	    repNsep(alleleCount, valParser, ",")
+    	
+    	  case MatchGenotypeCount =>
+    	    genotypeCount map (repNsep(_, valParser, ",")) getOrElse err("Cannot get parser with arity G: No genotype information available here.")
+    
+    	  case Variable =>
+    	    repsep(valParser, ",")
+    
+    	  case Exact(n) =>
+    	    repNsep(n, valParser, ",")
+    	}
+    })
   }
 }

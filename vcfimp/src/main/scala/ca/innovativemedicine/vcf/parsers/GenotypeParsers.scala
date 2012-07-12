@@ -4,6 +4,8 @@ import ca.innovativemedicine.vcf._
 
 import scala.util.parsing.combinator.JavaTokenParsers
 
+import scala.collection.mutable
+
 
 /**
  * Provides parsers for genotype data; that is, the FORMAT strings and the
@@ -23,7 +25,8 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
    */
   def genotypes(alleleCount: Int): Parser[(List[Format], List[List[List[VcfValue]]])] =
     format >> { fmts =>
-      repN(vcfInfo.samples.size, tab ~> genotype(fmts, alleleCount)) ^^ { fmts -> _ }
+      val genotypeParser = tab ~> genotype(fmts, alleleCount)
+      repN(vcfInfo.samples.size, genotypeParser) ^^ { fmts -> _ }
     }
     
     
@@ -36,6 +39,13 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
         ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
       } ^^ { _.reverse }
   }
+  
+  
+  type FormatKey = (List[Format], Option[Int], Int)
+  
+  private var cache: mutable.Map[FormatKey, Parser[List[List[VcfValue]]]] =
+    new mutable.HashMap[FormatKey, Parser[List[List[VcfValue]]]] with mutable.SynchronizedMap[FormatKey, Parser[List[List[VcfValue]]]]
+  
   
   
   def genotype(formats: List[Format], alleleCount: Int): Parser[List[List[VcfValue]]] = {
@@ -60,16 +70,18 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       } getOrElse (success(None))
     } else success(None)
     
-    val gtParser: Option[Int] => Parser[List[List[VcfValue]]] =
-      gtCount => formats map (getParser(_, gtCount, alleleCount)) match {
-        case Nil =>
-          success(List[List[VcfValue]]())
-          
-        case p :: parsers =>
-          parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
-            ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
-          } ^^ { _.reverse }
-      }
+    val gtParser: Option[Int] => Parser[List[List[VcfValue]]] = gtCount =>
+      cache.getOrElseUpdate((formats, gtCount, alleleCount), {
+        formats map (getParser(_, gtCount, alleleCount)) match {
+          case Nil =>
+            success(List[List[VcfValue]]())
+            
+          case p :: parsers =>
+            parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
+              ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
+            } ^^ { _.reverse }
+        }
+      })
     
     Parser(in => {
       gtCountParser(in) match {
