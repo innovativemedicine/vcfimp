@@ -25,7 +25,7 @@ object AnnovarPatcher extends App {
     case Right(opts) =>
       val vcfParser = VcfParser()
       
-      vcfParser.parse(opts.in getOrElse System.in, skipErrors = false) { (vcfInfo, rows) =>
+      vcfParser.parse(opts.in getOrElse System.in, skipErrors = false, workers = opts.workers) { (vcfInfo, rows) =>
         opts.patches map { case (desc, annovarFile) =>
           AnnovarPatch(new BufferedInputStream(new FileInputStream(annovarFile)), desc)
         } match {

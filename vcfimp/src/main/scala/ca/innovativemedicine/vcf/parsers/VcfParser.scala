@@ -119,7 +119,6 @@ trait VcfParser {
     require(workers >= 0)
 
   	val vcf = parseMetadata(lines, skipErrors)
-  	/*  */
   	
   	vcf.version map (_.toUpperCase) match {
   	  case Some(ValidVersion(ver)) =>

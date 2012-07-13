@@ -273,6 +273,7 @@ if [ -n "$PP2" ]; then
 fi
 
 
+errcho $PATCH_VCF $IN_VCF $PATCH_VCF_OPTS
 
 # We work with the original VCF again.
 $PATCH_VCF $IN_VCF $PATCH_VCF_OPTS
