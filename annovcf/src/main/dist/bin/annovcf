@@ -43,6 +43,8 @@ usage() {
 	errcho
 	errcho "  --humandb <dir>    Use <dir> for ANNOVAR DB files."
 	errcho
+	errcho "  --workers <num>    Creates num extra workers to parse the VCF file (default 0)."
+	errcho
 	errcho "ANNOVAR Annotations:"
 	errcho
 	errcho "  --all              Default. Same as --gene --sift --pp2."

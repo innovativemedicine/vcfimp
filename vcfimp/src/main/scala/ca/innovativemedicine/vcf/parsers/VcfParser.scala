@@ -3,7 +3,11 @@ package ca.innovativemedicine.vcf.parsers
 import ca.innovativemedicine.vcf._
 import java.io._
 import java.util.zip.GZIPInputStream
+import scala.collection.mutable
 import scala.annotation.tailrec
+import java.util.{ concurrent => juc }
+import java.util.concurrent.{ TimeUnit, BlockingQueue }
+import scala.actors.Actor
 
 
 case class VcfParseException(msg: String) extends Exception(msg)
@@ -100,22 +104,22 @@ trait VcfParser {
    * Parses the VCF file `file` and pass the metadata and an `Iterator` of
    * variants and genotype data to `f`. The iterator is only valid within `f`.
    */
-  def parse[A](file: File, skipErrors: Boolean)(f: Reader[A]): A =
-    withFile(file)(parse(_, skipErrors)(f))
+  def parseFile[A](file: File, skipErrors: Boolean, workers: Int = 0)(f: Reader[A]): A =
+    withFile(file)(parse(_, skipErrors, workers)(f))
   
     
   /**
    * Parses a VCF file from an arbitrary `InputStream`.
    */
-  def parse[A](in: InputStream, skipErrors: Boolean)(f: Reader[A]): A =
-    parse(vcfRows(in), skipErrors)(f)
+  def parse[A](in: InputStream, skipErrors: Boolean, workers: Int = 0)(f: Reader[A]): A =
+    parse(vcfRows(in), skipErrors, workers)(f)
+ 
   
-  
-  protected def parse[A](lines: Iterator[String], skipErrors: Boolean)(f: Reader[A]): A = {
+  protected def parse[A](lines: Iterator[String], skipErrors: Boolean, workers: Int)(f: Reader[A]): A = {
+    require(workers >= 0)
+
   	val vcf = parseMetadata(lines, skipErrors)
-  	val parser = new DataParsers {
-  	  val vcfInfo = vcf
-  	}
+  	/*  */
   	
   	vcf.version map (_.toUpperCase) match {
   	  case Some(ValidVersion(ver)) =>
@@ -127,21 +131,40 @@ trait VcfParser {
   	    // TODO: Log this as a warning.
   	}
   	
-  	val it = lines flatMap { row =>
-  	  parser.parse(parser.row, row) match {
-  	    case parser.Success(res, _) =>
-  	      Some(res)
-  	      
-  	    case error: parser.NoSuccess if skipErrors =>
-  	      println("Failed to parse variant, skipping row:\n%s" format error.toString())
-  	      None
-  	      
-  	    case error: parser.NoSuccess =>
-  	      throw VcfParseException(error.toString())
-  	  }
+  	if (workers > 0) {
+    	val parser = new ConcurrentVcfParser(vcf, lines, workers = workers)
+    	new Thread(parser).start()
+    	
+    	val result = f(vcf, parser flatMap {
+    	  case Right(row) =>
+    	    Some(row)
+    	    
+    	  case Left(error) if skipErrors =>
+    	    System.err.println("Failed to parse variant, skipping row:\n%s" format error.toString())
+          None
+          
+        case Left(error) =>
+          throw VcfParseException(error.toString())
+    	})
+    	parser.kill()
+    	result
+  	} else {
+  	  val parser = new DataParsers { val vcfInfo = vcf }
+  	  
+  	  f(vcf, lines flatMap { row =>
+    	  parser.parse(parser.row, row) match {
+    	    case parser.Success(res, _) =>
+    	      Some(res)
+    	      
+    	    case error: parser.NoSuccess if skipErrors =>
+    	      println("Failed to parse variant, skipping row:\n%s" format error.toString())
+    	      None
+    	      
+    	    case error: parser.NoSuccess =>
+    	      throw VcfParseException(error.toString())
+    	  }
+    	})
   	}
-  	
-  	f(vcf, it)
   }
 }
 

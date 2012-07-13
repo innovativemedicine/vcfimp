@@ -58,7 +58,7 @@ object Flatten extends App {
     try {
       params.vcfFile match {
         case Right(file) =>
-          VcfParser().parse(file, params.ignoreErrors)(flatten(params))
+          VcfParser().parseFile(file, params.ignoreErrors)(flatten(params))
           
         case Left(in) =>
           VcfParser().parse(in, params.ignoreErrors)(flatten(params))

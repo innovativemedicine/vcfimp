@@ -11,7 +11,8 @@ import scala.annotation.tailrec
 case class AnnovarPatcherParams(
     in: Option[InputStream],
     out: Option[OutputStream],
-    patches: List[(AnnovarPatch.Descriptor, File)])
+    patches: List[(AnnovarPatch.Descriptor, File)],
+    workers: Int = 0)
 
 
 object AnnovarPatcher extends App {
@@ -80,6 +81,17 @@ object AnnovarPatcher extends App {
               Left("Couldn't open %s for writing:\nioe.getMessage()" format outFileName)
           }
         }
+      }
+      
+    case "--workers" :: count :: args =>
+      try {
+        val workers = count.toInt
+        if (workers < 0)
+          throw new NumberFormatException()
+        parseOptions(args, params.copy(workers = workers))
+      } catch {
+        case nfe: NumberFormatException =>
+          Left("--workers only accepts a positive integer")
       }
       
     case inFileName :: args =>

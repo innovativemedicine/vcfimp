@@ -32,10 +32,10 @@ object SolrVcfImporter {
 trait SolrVcfImporter { self: SolrServerProvider =>
   import SolrVcfImporter._
       
-  def importFile(file: File, parallel: Boolean = false) {
+  def importFile(file: File, workers: Int = 0) {
     val parser = VcfParser()
     
-    parser.parse(file, skipErrors=false) { (vcfInfo, rows) =>
+    parser.parseFile(file, skipErrors=false, workers=workers) { (vcfInfo, rows) =>
       val converter = new VcfRowConverter(vcfInfo)
       
       withSolrServer(Collection.Variants) { vSolr =>
