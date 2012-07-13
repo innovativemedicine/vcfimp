@@ -129,8 +129,9 @@ object ConcurrentVcfParser {
   def RowParser(vcf: VcfInfo): Actor = actor {
     val parser = new DataParsers { val vcfInfo = vcf }
     
-    loop {
-      react {
+    // Bind each parser to a thread, as we expect them to be kept busy busy.
+    while (true) {
+      receive {
         case Kill =>
           sender ! Dead
           exit()
