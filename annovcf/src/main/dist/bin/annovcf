@@ -115,6 +115,10 @@ while [ -n "$1" ]; do
 			OUT_VCF="$2"
 			shift 2
 			;;
+		--workers )
+			WORKERS="$2"
+			shift 2
+			;;
 		* )
 			if [ -z "$IN_VCF" ]; then
 				IN_VCF="$1"
@@ -244,6 +248,10 @@ $CONVERT $VCF_FILE > $ANNOVAR_INPUT
 PATCH_VCF_OPTS=""
 if [ -n "$OUT_VCF" ]; then
 	PATCH_VCF_OPTS="--output \"$OUT_VCF\""
+fi
+
+if [ -n "$WORKERS" ]; then
+	PATCH_VCF_OPTS="--workers $WORKERS"
 fi
 
 
