@@ -25,7 +25,7 @@ object VcfImpBuild extends Build {
 
   def mergeSettings = assemblySettings ++ Dist.distSettings 
 
-  def vcfimpSolrSettings = Seq(
+  def vcfimpSolrSettings = assemblySettings ++ Dist.distSettings ++ Seq(
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "0.4.1",
       "org.apache.solr" % "solr-solrj" % "1.4.0",
