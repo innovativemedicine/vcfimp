@@ -93,7 +93,6 @@ extends Runnable with Iterator[Either[String, VcfRow]] {
       
       if (!rows.hasNext) {
         val eof = Futures.future { EOF }
-        println("Sending EOF.")
         while (stayAlive && !queue.offer(eof, queuePollTimeout._1, queuePollTimeout._2)) {
           // Spin.
         }
