@@ -88,6 +88,7 @@ class ConcurrentVcfDataWriter(writer: PrintWriter) extends Runnable {
               variant.ids mkString ",",
               variant.reference,
               variant.alternates map formatAlternate mkString ",",
+              variant.quality map (_.toString) getOrElse ".",
               variant.filter map formatFilterResult getOrElse ".",
               variant.info map { case (info, vals) =>
                 info.id.id + "=" + (vals map formatVcfValue mkString ",")
