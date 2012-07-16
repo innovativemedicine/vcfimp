@@ -38,7 +38,7 @@ extends Runnable with Iterator[Either[String, VcfRow]] {
     }
   }
   
-  private val queue = new juc.ArrayBlockingQueue[Future[Any]](100)
+  private val queue = new juc.ArrayBlockingQueue[Future[Any]](batchSize)
   
   // Iterator functions. We let InterruptedExceptions fall through. Is this OK?
   
@@ -98,6 +98,9 @@ extends Runnable with Iterator[Either[String, VcfRow]] {
         }
       }
     } finally {
+      
+      // Kill the parsers and _wait_ for them to finish.
+      
       parsers map { _ !! Kill } foreach { _() }
       dead = true
     }
