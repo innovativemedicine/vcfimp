@@ -15,7 +15,7 @@ object VcfWriter {
    * This writes a VCF file to `out`, but first applies a set of patches (in
    * order of their appearance in the params).
    */
-  def writeWithPatch(out: OutputStream, p: Patch[_], ps: Patch[_]*)(vcfInfo: VcfInfo, rows: Iterator[VcfRow]) {
+  def writeWithPatch(out: OutputStream, p: Patch[_], ps: Patch[_]*)(vcfInfo: VcfInfo, rows: Iterator[VcfRow]) {    
     (write(out) _).tupled (ps.foldLeft(p.apply _)(_ andThen _)(vcfInfo -> rows))
   }
   
@@ -42,7 +42,8 @@ object VcfWriter {
     val t = new Thread(dataWriter)
     t.start()
     
-    // Any patches will be applied in this thread, the row is written in t.
+    // Any patches will be applied in this thread, the row is written in thread t.
+    
     rows foreach { dataWriter write _ }
     
     dataWriter.finish()

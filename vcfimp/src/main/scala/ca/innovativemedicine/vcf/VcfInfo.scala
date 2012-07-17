@@ -71,7 +71,7 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
       	case _: Info => manifest[Info]
       	case _: Alt => manifest[Alt]
       }
-      
+
       if (M <:< A) Some(md.asInstanceOf[A]) else None
     }
   }

@@ -1,6 +1,6 @@
 package ca.innovativemedicine.vcf.solr
 
-import java.io.File
+import java.io.InputStream
 
 import java.{ util => ju }
 
@@ -29,21 +29,36 @@ object SolrVcfImporter {
 }
 
 
+trait ConfiguredSolrVcfImporter extends SolrVcfImporter { self: SolrServerProvider with Configured =>
+  lazy val workers: Int = if (config.hasPath("vcf.parser.workers")) {
+    config.getInt("vcf.parser.workers")
+  } else 0
+  
+  lazy val parallelConversion: Boolean = if (config.hasPath("vcf.solr.parallelConversion")) {
+    config.getBoolean("vcf.parser.workers")
+  } else false
+  
+  override def importVcf(in: InputStream): Unit = importVcf(in, workers)
+}
+
+
 trait SolrVcfImporter { self: SolrServerProvider =>
   import SolrVcfImporter._
-      
-  def importFile(file: File, workers: Int = 0) {
+  
+  def importVcf(in: InputStream): Unit = importVcf(in, 0)
+  
+  def importVcf(in: InputStream, workers: Int) {
     val parser = VcfParser()
-    
-    parser.parseFile(file, skipErrors=false, workers=workers) { (vcfInfo, rows) =>
+
+    parser.parse(in, skipErrors=false, workers=workers) { (vcfInfo, rows) =>
       val converter = new VcfRowConverter(vcfInfo)
+      val convert = (converter.convert _).tupled
       
       withSolrServer(Collection.Variants) { vSolr =>
         withSolrServer(Collection.Calls) { cSolr =>
-          rows map ((converter.convert _).tupled) foreach {
-            case (vdoc, sdocs) =>
-              vSolr add vdoc
-              sdocs foreach { cSolr add _ }
+          rows map convert foreach { case (vdoc, sdocs) =>
+            vSolr add vdoc
+            sdocs foreach { cSolr add _ }
           }
         }
       }

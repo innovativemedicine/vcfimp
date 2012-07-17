@@ -26,9 +26,15 @@ object VcfImpBuild extends Build {
   def mergeSettings = assemblySettings ++ Dist.distSettings 
 
   def vcfimpSolrSettings = assemblySettings ++ Dist.distSettings ++ Seq(
+    (mergeStrategy in assembly) ~= (f => {
+      case name if name startsWith "javax/xml/stream" =>
+        MergeStrategy.first
+      case name =>
+        f(name)
+    }),
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "0.4.1",
-      "org.apache.solr" % "solr-solrj" % "1.4.0",
+      "org.apache.solr" % "solr-solrj" % "4.0.0-ALPHA",
       "org.slf4j" % "slf4j-simple" % "1.6.6"
     )
   )
@@ -37,14 +43,19 @@ object VcfImpBuild extends Build {
     lazy val dist = TaskKey[Unit]("dist", "Packages up bin files and JARs in a zip.")
     lazy val distName = SettingKey[String]("dist-name", "Name of the dist zip file without the .zip.")
     lazy val distZip = SettingKey[File]("dist-zip", "Zip file to save dist to.")
+    lazy val distJars = SettingKey[Seq[File]]("dist-jars", "Jars to copy to include in lib/.")
     lazy val binFiles = SettingKey[Seq[File]]("dist-bin-files", "The bin files to include in bin/.")
     lazy val distFiles = SettingKey[Seq[File]]("dist-extra-files", "Extra files to include the root of the dist ZIP.")
 
     lazy val distSettings = Seq(
-      distName in dist <<= (name, version) { (name, version) => name + "-" + version },
-      distZip in dist <<= (target in dist, distName in dist) { (t, n) => t / (n + ".zip") },
+      distName in dist <<= (name, version) { _ + "-" + _ },
+      distZip in dist <<= (target in dist, distName in dist) { (t, n) =>
+        t / (n + ".zip")
+      },
       binFiles in dist <<= (sourceDirectory in dist) { src => (src / "main"/  "bin" * "*").get },
-      distFiles in dist <<= (sourceDirectory in dist) { src => (src / "main" / "dist" ** "*").get },
+      distFiles in dist <<= (sourceDirectory in dist) { src =>
+        (src / "main" / "dist" ** "*").get
+      },
       dist <<= (distName in dist,
                 distZip in dist,
                 sourceDirectory in dist,
@@ -55,8 +66,7 @@ object VcfImpBuild extends Build {
 
           distTask(name, zip, src, bins, extra, Seq(jar))
 
-      } dependsOn (assembly)
-    )
+      } dependsOn (assembly))
 
     def removeParent(parent: File, file: File): Option[String] =
       if (file.getCanonicalPath().startsWith(parent.getCanonicalPath() + "/")) {

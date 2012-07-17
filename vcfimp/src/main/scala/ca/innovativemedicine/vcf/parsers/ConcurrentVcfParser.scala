@@ -11,6 +11,19 @@ import scala.actors.Futures
  * This will parse a VCF file concurrently. One thread is always dedicated to
  * reading in the file and there will also be several workers spun up (actors)
  * to parse the file.
+ * 
+ * This code is a little complected. It does 2 things. It provides the Runnable
+ * interface that will load up a queue with data. It also provides an Iterator
+ * view into this queue. I had these separated, but joined them for a bit of
+ * ease of use (you just create 1 ConcurrentVcfParser, start it in a new Thread,
+ * and then can .next() away). However, I don't like this. It may be worth
+ * splitting the Iterator out again (it just needs the queue, afterall).
+ * 
+ * @param vcf The VCF file's metadata.
+ * @param rows The VCF data rows (everything after the TSV header).
+ * @param batchSize The number of rows that can be queued up for processing at
+ *                  any given time.
+ * @param workers The # of extra workers to use to parse the rows in the queue.
  */
 final class ConcurrentVcfParser(vcf: VcfInfo, rows: Iterator[String], batchSize: Int = 100, workers: Int = 4)
 extends Runnable with Iterator[Either[String, VcfRow]] {
@@ -50,8 +63,19 @@ extends Runnable with Iterator[Either[String, VcfRow]] {
     _head()
   }
   
+  
+  /**
+   * Returns `true` if there is more rows avaiable. This will block until the
+   * next row is available (or the queue gets an EOF).
+   */
   def hasNext = head != EOF
   
+  
+  /**
+   * Returns the next parsed row. This will block until a parsed row is
+   * available in the queue. Thus, if you call this without starting the
+   * `Runnable` in a new thread, it will block indefinitely.
+   */
   def next = {
     val result = head match {
       case ParsedRow(row) =>
@@ -81,17 +105,31 @@ extends Runnable with Iterator[Either[String, VcfRow]] {
     parsers(_parser)
   }
   
+  
+  /**
+   * Runs the VCF parser. This will read the data rows from `rows`, send them
+   * off to be parsed by the workers, and store the `Future` from the worker in
+   * the queue. The queue blocks after `batchSize` `Future`s have been queued
+   * up. This means we don't need to worry about any memory problems, as we'll
+   * never work with more than `batchSize` rows at any given time.
+   */
   def run() {
     try {
       while (stayAlive && rows.hasNext) {
-        val result = parser !! rows.next()
         
+        // Parse the row at some point and queue up the future result.
+        
+        val result = parser !! rows.next()
         while (stayAlive && !queue.offer(result, queuePollTimeout._1, queuePollTimeout._2)) {
           // Can't be reading these rows too fast, yo.
         }
       }
       
       if (!rows.hasNext) {
+        
+        // We've reached the end of the iterator (vs. being interrupted).
+        // We notify the `VcfRow` iterator by using the sentinel `EOF`.
+        
         val eof = Futures.future { EOF }
         while (stayAlive && !queue.offer(eof, queuePollTimeout._1, queuePollTimeout._2)) {
           // Spin.
