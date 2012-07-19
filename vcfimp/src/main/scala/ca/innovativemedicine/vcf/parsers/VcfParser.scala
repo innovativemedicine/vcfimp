@@ -20,9 +20,12 @@ trait VcfParser {
   
   /**
    * Determines if `in` is gzipped and, if so, wraps it in a `GZIPInputStream`
-   * and returns it. Otherwise this just returns `in`.
+   * and returns it. Otherwise this returns an `InputStream` that can read the
+   * original one. Do NOT attempt to re-use `in` after calling this method.
+   * Doing so will cause fire and brimstone to rain down upon your cubicle.
    * 
    * @param in An `InputStream` that may need to be decompressed.
+   * @returns A new `InputStream` to read an uncompressed VCF from.
    */
   private def maybeDecompress(in: InputStream): InputStream = {
     val pb = new PushbackInputStream(in, 2)
