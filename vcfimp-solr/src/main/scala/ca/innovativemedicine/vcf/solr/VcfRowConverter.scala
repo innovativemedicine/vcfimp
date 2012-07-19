@@ -93,6 +93,10 @@ case class VcfRowConverter(vcfInfo: VcfInfo) {
       
     val chrom = VcfFormatter.formatChromosome(variant.chromosome)
     val alts = variant.alternates map VcfFormatter.formatAlternate
+    val ftrs = variant.filter map {
+      case FilterResult.Pass => Nil
+      case FilterResult.Fail(filters) => filters map (_.id.id)
+    }
     
     vdoc.addField("id", variantId)
     
@@ -104,12 +108,7 @@ case class VcfRowConverter(vcfInfo: VcfInfo) {
     vdoc.addField("ref", variant.reference)
     vdoc.addField("alts", alts.asJava)
     variant.quality foreach (vdoc.addField("quality", _))
-    variant.filter foreach {
-      case FilterResult.Pass =>
-        vdoc.addField("filters_failed", new ju.LinkedList[String]())
-      case FilterResult.Fail(filters) =>
-        vdoc.addField("filters_failed", filters.asJava)
-    }
+    ftrs foreach { filters => vdoc.addField("filters_failed", filters.asJava) }
     
     variant.info foreach { case (info, values) =>
       addTypedField(vdoc, "info", info.id.id, info.typed, values)
@@ -138,12 +137,7 @@ case class VcfRowConverter(vcfInfo: VcfInfo) {
       doc.addField("v_ref", variant.reference)
       doc.addField("v_alt", alts.asJava)
       variant.quality foreach (doc.addField("v_quality", _))
-      variant.filter foreach {
-        case FilterResult.Pass =>
-          doc.addField("v_filters_failed", new ju.LinkedList[String]())
-        case FilterResult.Fail(filters) =>
-          doc.addField("v_filters_failed", filters.asJava)
-      }
+      ftrs foreach { filters => doc.addField("filters_failed", filters.asJava) }
       
       // Call.
       
