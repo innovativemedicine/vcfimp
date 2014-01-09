@@ -11,7 +11,30 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
   protected lazy val sampleLookup: Map[VcfId, Sample] =
     samples.map(s => s.id -> s)(collection.breakOut)
   
+  /** Holds only INFO metadata */
+  protected lazy val infoLookup: Map[VcfId, Info] = metadata.collect({
+    case md: Info => md.id -> md
+  })(collection.breakOut)
+  
+  /** Holds only FILTER metadata */
+  protected lazy val filterLookup: Map[VcfId, Filter] = metadata.collect({
+    case md: Filter => md.id -> md
+  })(collection.breakOut)
+  
+  /** Holds only ALT metadata */
+  protected lazy val altLookup: Map[VcfId, Alt] = metadata.collect({
+    case md: Alt => md.id -> md
+  })(collection.breakOut)
+  
+  /** Holds only FORMAT metadata */
+  protected lazy val formatLookup: Map[VcfId, Format] = metadata.collect({
+    case md: Format => md.id -> md
+  })(collection.breakOut)
+  
+  /** Holds all other metadata, keeping the last in cases of ID conflicts. */
   protected lazy val metadataLookup: Map[VcfId, Metadata with HasID] = metadata.collect({
+    // TODO: Filter out anything that is an Info, Filter, Alt, or Format
+    // Maybe just specify all the things that aren't those?
     case md: Metadata with HasID => md.id -> md
   })(collection.breakOut)
   
@@ -60,19 +83,42 @@ case class VcfInfo(metadata: List[Metadata], samples: List[Sample]) {
   
   
   /**
-   * Given a type `A` and an ID `id`, this will return the metadata with ID
-   * `id` iff it is an instance of `A`.
+   * Given a type `A` and an ID `id`, this will return the metadata with ID `id`
+   * iff it is an instance of `A`. Disambiguates duplicate IDs if `A` is one of
+   * `Format`, `Filter`, `Info`, or `Alt`. Otherwise, returns the most recently
+   * defined metadata with the requested id, if that metadata has the requested
+   * type.
    */
-  def getTypedMetadata[A <: Metadata](id: VcfId)(implicit A: Manifest[A]): Option[A] = {
-    getMetadata(id) flatMap { md =>
-      val M = md match {
-      	case _: Format => manifest[Format]
-      	case _: Filter => manifest[Filter]
-      	case _: Info => manifest[Info]
-      	case _: Alt => manifest[Alt]
-      }
+  def getTypedMetadata[A <: Metadata](id: VcfId)(implicit m: Manifest[A]): Option[A] = {
+    if(m <:< manifest[Format]) {
+      // They want Format or a subtype
+      (formatLookup get id).asInstanceOf[Option[A]]
+    } else if(m <:< manifest[Filter]) {
+      // They want Filter or a subtype
+      (filterLookup get id).asInstanceOf[Option[A]]
+    } else if(m <:< manifest[Info]) {
+      // They want Info or a subtype
+      (infoLookup get id).asInstanceOf[Option[A]]
+    } else if (m <:< manifest[Alt]) {
+      // // They want Alt or a subtype
+      (altLookup get id).asInstanceOf[Option[A]]
+    } else {
+      // Fall back on the old method: they may have asked for a supertype or
+      // some other complicated thing, so just get the last `Metadata` with the
+      // given ID, if it matches the given type. TODO: Work out some sort of
+      // amazing typed multi-map that can get us things indexed by string and
+      // any supertype.
+      getMetadata(id) flatMap { md =>
+        val M = md match {
+    	  case _: Format => manifest[Format]
+      	  case _: Filter => manifest[Filter]
+      	  case _: Info => manifest[Info]
+      	  case _: Alt => manifest[Alt]
+        }
 
-      if (M <:< A) Some(md.asInstanceOf[A]) else None
+        // If it's the right type, make it that type and send it back
+        if (M <:< m) Some(md.asInstanceOf[A]) else None
+      }
     }
   }
 }
