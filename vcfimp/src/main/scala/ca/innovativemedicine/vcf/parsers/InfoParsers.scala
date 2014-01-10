@@ -17,14 +17,13 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
   // TODO: Handle flags, which may not have the '='... though if they have
   // Number=0, which Flags should, then they will be handled correctly.
   
-  def infoField(alleleCount: Int) = "[^=,;]+".r >> { id =>
+  def infoField(alleleCount: Int) = "[^=,;\\t]+".r >> { id =>
     vcfInfo.getTypedMetadata[Info](VcfId(id)) match {
       
       case Some(info) if info.typed == Type.FlagType =>
         success(info -> (VcfFlag :: Nil))
         
       case Some(info) =>
-        
         // FIXME: Currently it is an error to use an INFO field with Number=G,
         // as I don't have access to this information (hence `None` is passed
         // to `getParser`). However, the spec isn't clear, and perhaps we are
