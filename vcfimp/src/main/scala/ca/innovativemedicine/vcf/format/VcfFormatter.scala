@@ -34,6 +34,7 @@ object VcfFormatter {
     case VcfCharacter(value: Char) => value.toString
     case VcfString(value: String) => value
     case VcfFlag => ""
+    case VcfMissing => "."
   }
   
   def formatBreakend(breakend: Breakend) = breakend.toBreakendString

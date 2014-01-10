@@ -16,11 +16,31 @@ import scala.collection.mutable
 trait VcfValueParsers extends JavaTokenParsers {
   import Metadata._
   
+  // Parsers for basic VCF value types.
+  // Missing data
+  val vcfMissing = "\\.".r ^^ { _ => VcfMissing }
+  // A non-missing non-negative int
   val vcfNonNegativeInteger = "\\d+".r ^^ { n => VcfInteger(n.toInt) }
+  // A non-missing int
   val vcfInteger = wholeNumber ^^ { n => VcfInteger(n.toInt) }
+  // A non-missing float
   val vcfFloat = floatingPointNumber ^^ { n => VcfFloat(n.toDouble) }
-  val vcfCharacter = ".".r ^^ { c => VcfCharacter(c.charAt(0)) }
-  def vcfString(pattern: Regex) = pattern ^^ { VcfString(_) }
+  // A character (which is not ".", because "." means "missing")
+  val vcfCharacter = "[^.]".r ^^ { c => VcfCharacter(c.charAt(0)) }
+  // A string (which is not ".", because "." would mean "missing")
+  def vcfString(pattern: Regex) = {
+    // We need to parse the string with pattern (a parser), then check if it's
+    // "." and fail if so. We need to do all that inside a Parser.
+    Parser[VcfValue](in => pattern(in) match {
+      // We succesfully matched just a .
+      case Success(".", rest) => Failure("Non-missing string may not be just \".\"", in)
+      // We successfully parsed some other string. Wrap it in a VcfString.
+      case Success(string, rest) => Success(VcfString(string), rest)
+      case err: NoSuccess => err
+    })
+  }
+  
+  // A flag, which has no actual value
   val vcfFlag = success(VcfFlag)
   
   
@@ -54,22 +74,30 @@ trait VcfValueParsers extends JavaTokenParsers {
    * and `genotypeCount` is `None`, then this will result in a `Parser` that
    * always fails (and helpfully indicates that not genotype info was present).
    * 
-   * @param info The metadata INFO field to generate a parser for.
+   * This function also produces parsers for FORMAT (genotype) field values.
+   *
+   * Anything that isn't a flag may parse as a `VcfMissing`; for example, a
+   * character field with the value "." will parse as `VcfMissing` rather than
+   * `VcfCharacter(".")`.
+   *
+   * @param info The metadata INFO or FORMAT field to generate a parser for.
    * @param genotypeCount An optional "genotype" count (the ploidy).
    * @param alleleCount The number of alleles for this variant.
    */
   def getParser(info: Metadata with HasArity with HasType, genotypeCount: Option[Int], alleleCount: Int): Parser[List[VcfValue]] = {
     import Arity._
     
+    println("Getting parser for %s".format(info))
+    
     cache.getOrElseUpdate((info, genotypeCount, alleleCount), {
     	val valParser: Parser[VcfValue] = info.typed match {
-    	  case Type.IntegerType => vcfInteger
-    	  case Type.FloatType => vcfFloat
+    	  case Type.IntegerType => vcfInteger | vcfMissing
+    	  case Type.FloatType => vcfFloat | vcfMissing
     	  case Type.StringType => vcfString(info match {
     	      case _: Info => "[^,;\\t]*".r
     	      case _: Format => "[^,:\\t]*".r
-    	    })
-    	  case Type.CharacterType => vcfCharacter
+    	    }) | vcfMissing
+    	  case Type.CharacterType => vcfCharacter | vcfMissing
     	  case Type.FlagType => vcfFlag
     	}
     	  
