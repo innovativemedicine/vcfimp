@@ -24,6 +24,9 @@ class GenotypeParsersTest extends FunSuite {
   val s3t = "1/1/1:0.000:-0.11,-0.67,-4.40:5,6,7"
   val s3 = List(List(VcfString("1/1/1")), List(VcfFloat(0.0)), List(VcfFloat(-0.11), VcfFloat(-0.67), VcfFloat(-4.40)), List(VcfInteger(5), VcfInteger(6), VcfInteger(7)))
   
+  val s4t = "0|1|0:.:.:.,.,."
+  val s4 = List(List(VcfString("1/1/1")), List(VcfString(".")), List(VcfString(".")), List(VcfString("."), VcfString("."), VcfString(".")))
+  
   val row = "GT:DS:GL:XX\t%s\t%s\t%s" format (s1t, s2t, s3t)
   val rowWoSample = "GT:DS:GL:XX\t%s\t%s" format (s1t, s2t)
   
@@ -53,6 +56,10 @@ class GenotypeParsersTest extends FunSuite {
     assert(parser.parseAll(parser.genotype(formats, 2), s1t).get === s1)
     assert(parser.parseAll(parser.genotype(formats, 2), s2t).get === s2)
     assert(parser.parseAll(parser.genotype(formats, 2), s3t).get === s3)
+  }
+  
+  test("samples with missing values noted parse correctly") {
+    assert(parser.parseAll(parser.genotype(formats, 2), s4t).get === s4)
   }
   
   test("sample data missing gt data fails to parse") {
