@@ -29,7 +29,42 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       repN(vcfInfo.samples.size, genotypeParser) ^^ { fmts -> _ }
     }
     
-    
+  
+  /**
+   * Given a list of parsers, produce a parser for a list of things, separated
+   * by a separator (default ":"). Trailing things may be dropped.
+   */
+  protected def parseDropTrailing[T](parsers: List[Parser[T]], separator : String = ":") : Parser[List[T]] = parsers match {
+    case Nil =>
+      // If they give us no parsers, we parse nothing.
+      success(Nil)  
+    case firstParser :: restParsers =>
+      // If they give us a parser and the rest, we definitely parse the first,
+      // and then optionally parse the rest.
+      Parser[List[T]](in =>
+        // Parse the first
+        firstParser(in) match {
+          // We parsed the first thing successfully.
+          case Success(firstResult, rest) => 
+            // Try parsing the separator and then the rest.
+            (separator ~> parseDropTrailing(restParsers))(rest) match {
+              case Success(restResults, after) =>
+                // We successfully parsed the rest and got a list for it. Stick
+                // our first result on and succeed with that.
+                Success(firstResult :: restResults, after)
+              case err : NoSuccess =>
+                // We only succeeded as far as our first item, but that's OK. Just
+                // succeed with that result in a list, and try parsing rest
+                // through whatever parser comes next.
+                Success(firstResult :: Nil, rest)
+          }
+          
+          // The first thing there did not parse.
+          case err : NoSuccess => err
+        } 
+      )
+  }
+
   protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parsers match {
     case Nil =>
       success(List[List[VcfValue]]())
