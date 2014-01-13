@@ -65,16 +65,7 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       )
   }
 
-  protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parsers match {
-    case Nil =>
-      success(List[List[VcfValue]]())
-      
-    case p :: parsers =>
-      parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
-        ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
-      } ^^ { _.reverse }
-  }
-  
+  protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parseDropTrailing(parsers) 
   
   type FormatKey = (List[Format], Option[Int], Int)
   
@@ -84,6 +75,10 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
   
   
   def genotype(formats: List[Format], alleleCount: Int): Parser[List[List[VcfValue]]] = {
+    
+    // What is the minimum length that the list of values can have to include
+    // the GT? If "GT" does not exist, this will be 0.
+    val minLength = (formats map {_.id.id} indexOf "GT") + 1
     
     // If any of the formats require the genotype count (Number=G), then we'll
     // first parse the data while ignoring arity to see if we can determine the
@@ -105,13 +100,31 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       } getOrElse (success(None))
     } else success(None)
     
+    // Make a parser to parse out the number of genotypes
     val gtParser: Option[Int] => Parser[List[List[VcfValue]]] =
       gtCount => cache.getOrElseUpdate((formats, gtCount, alleleCount),
           valueParserList(formats map (getParser(_, gtCount, alleleCount))))
     
-    Parser(in => gtCountParser(in) match {
+    // Make a parser to parse the actual list of VcfValues
+    val genotypeParser = Parser(in => gtCountParser(in) match {
       case Success(gtCount, _) => gtParser(gtCount)(in)
       case err: NoSuccess => err
+    })
+    
+    // Return a parser that parses out the value list, but rejects it if it is
+    // too short to include the "GT" field.
+    Parser(in => genotypeParser(in) match {
+      case Success(valueList, rest) => {
+        if(valueList.size >= minLength) {
+          // We found enough values to have GT
+          Success(valueList, rest)
+        } else {
+          // We dropped GT, which is illegal
+          Failure("Illegally dropped \"GT\" field", in)
+        }
+      }
+      // We didn't parse the genotype fields.
+      case err : NoSuccess => err
     })
   }
   

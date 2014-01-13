@@ -36,7 +36,8 @@ class GenotypeParsersTest extends FunSuite {
   val s4 = List(List(VcfString("0|1|0")), List(VcfMissing), List(VcfMissing), List(VcfMissing, VcfMissing, VcfMissing))
   
   val s5t = "1|1:0.000"
-  val s5 = List(List(VcfString("1|1")), List(VcfFloat(0.0)), List(VcfMissing), List(VcfMissing, VcfMissing, VcfMissing))
+  // Don't expect the parser to magically reconstruct the structure of VcfMissing you might have to satisfy the FORMATs.
+  val s5 = List(List(VcfString("1|1")), List(VcfFloat(0.0)))
   
   val row = "GT:DS:GL:XX\t%s\t%s\t%s" format (s1t, s2t, s3t)
   val rowWoSample = "GT:DS:GL:XX\t%s\t%s" format (s1t, s2t)
