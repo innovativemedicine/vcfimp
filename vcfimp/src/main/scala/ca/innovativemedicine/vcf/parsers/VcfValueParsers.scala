@@ -87,8 +87,6 @@ trait VcfValueParsers extends JavaTokenParsers {
   def getParser(info: Metadata with HasArity with HasType, genotypeCount: Option[Int], alleleCount: Int): Parser[List[VcfValue]] = {
     import Arity._
     
-    println("Getting parser for %s".format(info))
-    
     cache.getOrElseUpdate((info, genotypeCount, alleleCount), {
     	val valParser: Parser[VcfValue] = info.typed match {
     	  case Type.IntegerType => vcfInteger | vcfMissing
