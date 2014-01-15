@@ -15,6 +15,14 @@ class GenotypeParsersTest extends FunSuite {
       Format(VcfId("XX"), Arity.MatchGenotypeCount, Type.IntegerType, None)
     )
     
+  // Make an alternative formats list with GT not at the beginning, so we can
+  // try and fail to trailing-field-drop it.
+  val formats2 = List(
+      Format(VcfId("DS"), Arity.Exact(1), Type.FloatType, None),
+      Format(VcfId("GL"), Arity.Variable, Type.FloatType, None),
+      Format(VcfId("GT"), Arity.Exact(1), Type.StringType, None)
+    )
+    
   val s1t = "0|0:0.000:-0.04,-1.07,-5.00:1,2"
   val s1 = List(List(VcfString("0|0")), List(VcfFloat(0.0)), List(VcfFloat(-0.04), VcfFloat(-1.07), VcfFloat(-5)), List(VcfInteger(1), VcfInteger(2)))
   
@@ -23,6 +31,13 @@ class GenotypeParsersTest extends FunSuite {
     
   val s3t = "1/1/1:0.000:-0.11,-0.67,-4.40:5,6,7"
   val s3 = List(List(VcfString("1/1/1")), List(VcfFloat(0.0)), List(VcfFloat(-0.11), VcfFloat(-0.67), VcfFloat(-4.40)), List(VcfInteger(5), VcfInteger(6), VcfInteger(7)))
+  
+  val s4t = "0|1|0:.:.:.,.,."
+  val s4 = List(List(VcfString("0|1|0")), List(VcfMissing), List(VcfMissing), List(VcfMissing, VcfMissing, VcfMissing))
+  
+  val s5t = "1|1:0.000"
+  // Don't expect the parser to magically reconstruct the structure of VcfMissing you might have to satisfy the FORMATs.
+  val s5 = List(List(VcfString("1|1")), List(VcfFloat(0.0)))
   
   val row = "GT:DS:GL:XX\t%s\t%s\t%s" format (s1t, s2t, s3t)
   val rowWoSample = "GT:DS:GL:XX\t%s\t%s" format (s1t, s2t)
@@ -55,8 +70,18 @@ class GenotypeParsersTest extends FunSuite {
     assert(parser.parseAll(parser.genotype(formats, 2), s3t).get === s3)
   }
   
-  test("sample data missing gt data fails to parse") {
-    assert(!parser.parseAll(parser.genotype(formats, 2), "0|0:0.000").successful)
+  test("samples with missing values noted parse correctly") {
+    assert(parser.parseAll(parser.genotype(formats, 2), s4t).get === s4)
+  }
+  
+  test("sample that drops trailing non-GT fields parses correctly") {
+    assert(parser.parseAll(parser.genotype(formats, 2), s5t).get === s5)
+  }
+  
+  test("sample that drops trailing GT field should fail") {
+    // We need to use the GT-isn't-first formats here so we can try and fail to
+    // trailing-drop GT.
+    assert(!parser.parseAll(parser.genotype(formats2, 2), "0.000:0.2,0.3").successful)
   }
   
   test("valid full-row, with formats and sample data, can be parsed") {
