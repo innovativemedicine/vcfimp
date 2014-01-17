@@ -14,9 +14,12 @@ class VcfInfoTests extends FunSuite {
   
   val filterA = Filter(VcfId("FilterA"), Some("Some filter."))
   
+  val ambigInfo = Info(VcfId("Ambig"), Arity.Exact(1), Type.StringType, Some("An INFO field"))
+  val ambigFormat = Format(VcfId("Ambig"), Arity.Exact(1), Type.StringType, Some("A Format field"))
+  
   val samples = List(Sample(VcfId("a")), Sample(VcfId("InfoB")), Sample(VcfId("c")))
   
-  val vcfInfo = VcfInfo(List(infoA1, infoA2, infoB, altA, filterA), samples)
+  val vcfInfo = VcfInfo(List(infoA1, infoA2, infoB, altA, filterA, ambigInfo, ambigFormat), samples)
   
   test("can get a sample by ID") {
     assert(vcfInfo.getSample(VcfId("a")) === Some(samples.head))
@@ -38,6 +41,13 @@ class VcfInfoTests extends FunSuite {
     assert(vcfInfo.getTypedMetadata[Filter](VcfId("InfoA")) === None)
     assert(vcfInfo.getTypedMetadata[Alt](VcfId("AltA")) === Some(altA))
     assert(vcfInfo.getTypedMetadata[Info](VcfId("AltA")) === None)
+  }
+  
+  test("get typed metadata disambiguates duplicate names") {
+    assert(vcfInfo.getTypedMetadata[Info](VcfId("Ambig")) === Some(ambigInfo))
+    assert(vcfInfo.getTypedMetadata[Filter](VcfId("Ambig")) === None)
+    assert(vcfInfo.getTypedMetadata[Alt](VcfId("Ambig")) === None)
+    assert(vcfInfo.getTypedMetadata[Format](VcfId("Ambig")) === Some(ambigFormat))
   }
   
   test("can get either sample or metadata using get") {

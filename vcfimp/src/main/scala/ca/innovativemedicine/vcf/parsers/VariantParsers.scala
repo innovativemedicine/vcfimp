@@ -33,11 +33,11 @@ trait VariantParsers extends TsvParsers with InfoParsers {
   // Parsers for parsing individual fields from the variant-portion of a VCF file row.
   
   
-  lazy val chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | ("[^:\\s]+".r ^^ { Right(_) })
+  lazy val chromosome: Parser[Chromosome] = (vcfId ^^ { Left(_) }) | ("[^:.\\s]+".r ^^ { Right(_) })
   
   lazy val position: Parser[Int] = "\\d+".r ^^ { _.toInt }
   
-  lazy val ids: Parser[List[String]] = '.' ^^^ Nil ||| repsep("[^\\s;]+".r, ";")
+  lazy val ids: Parser[List[String]] = '.' ^^^ Nil ||| rep1sep("[^\\s;]+".r, ";")
   
   lazy val ref: Parser[String] = sequence
   
@@ -45,7 +45,7 @@ trait VariantParsers extends TsvParsers with InfoParsers {
       (breakend ^^ { bnd => Left(Left(bnd)) })
     | (vcfId ^^ { id => Left(Right(id)) })
     | (sequence ^^ { Right(_) })
-    , ',') 
+    , ',') | "." ^^^ Nil
   
   lazy val quality: Parser[Double] = floatingPointNumber ^^ { _.toDouble }
   

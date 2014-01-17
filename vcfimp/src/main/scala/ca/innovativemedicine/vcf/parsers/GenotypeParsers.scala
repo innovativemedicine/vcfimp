@@ -29,17 +29,43 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       repN(vcfInfo.samples.size, genotypeParser) ^^ { fmts -> _ }
     }
     
-    
-  protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parsers match {
-    case Nil =>
-      success(List[List[VcfValue]]())
-      
-    case p :: parsers =>
-      parsers.foldLeft(p ^^ { _ :: Nil }) { case (ps, p) =>
-        ps >> { vs => (':' ~> p) ^^ { _ :: vs } }
-      } ^^ { _.reverse }
-  }
   
+  /**
+   * Given a list of parsers, produce a parser for a list of things, separated
+   * by a separator (default ":"). Trailing things may be dropped.
+   */
+  protected def parseDropTrailing[T](parsers: List[Parser[T]], separator : String = ":") : Parser[List[T]] = parsers match {
+    case Nil =>
+      // If they give us no parsers, we parse nothing.
+      success(Nil)  
+    case firstParser :: restParsers =>
+      // If they give us a parser and the rest, we definitely parse the first,
+      // and then optionally parse the rest.
+      Parser[List[T]](in =>
+        // Parse the first
+        firstParser(in) match {
+          // We parsed the first thing successfully.
+          case Success(firstResult, rest) => 
+            // Try parsing the separator and then the rest.
+            (separator ~> parseDropTrailing(restParsers))(rest) match {
+              case Success(restResults, after) =>
+                // We successfully parsed the rest and got a list for it. Stick
+                // our first result on and succeed with that.
+                Success(firstResult :: restResults, after)
+              case err : NoSuccess =>
+                // We only succeeded as far as our first item, but that's OK. Just
+                // succeed with that result in a list, and try parsing rest
+                // through whatever parser comes next.
+                Success(firstResult :: Nil, rest)
+          }
+          
+          // The first thing there did not parse.
+          case err : NoSuccess => err
+        } 
+      )
+  }
+
+  protected def valueParserList(parsers: List[Parser[List[VcfValue]]]): Parser[List[List[VcfValue]]] = parseDropTrailing(parsers) 
   
   type FormatKey = (List[Format], Option[Int], Int)
   
@@ -49,6 +75,10 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
   
   
   def genotype(formats: List[Format], alleleCount: Int): Parser[List[List[VcfValue]]] = {
+    
+    // What is the minimum length that the list of values can have to include
+    // the GT? If "GT" does not exist, this will be 0.
+    val minLength = (formats map {_.id.id} indexOf "GT") + 1
     
     // If any of the formats require the genotype count (Number=G), then we'll
     // first parse the data while ignoring arity to see if we can determine the
@@ -70,13 +100,31 @@ trait GenotypeParsers extends TsvParsers with VcfValueParsers {
       } getOrElse (success(None))
     } else success(None)
     
+    // Make a parser to parse out the number of genotypes
     val gtParser: Option[Int] => Parser[List[List[VcfValue]]] =
       gtCount => cache.getOrElseUpdate((formats, gtCount, alleleCount),
           valueParserList(formats map (getParser(_, gtCount, alleleCount))))
     
-    Parser(in => gtCountParser(in) match {
+    // Make a parser to parse the actual list of VcfValues
+    val genotypeParser = Parser(in => gtCountParser(in) match {
       case Success(gtCount, _) => gtParser(gtCount)(in)
       case err: NoSuccess => err
+    })
+    
+    // Return a parser that parses out the value list, but rejects it if it is
+    // too short to include the "GT" field.
+    Parser(in => genotypeParser(in) match {
+      case Success(valueList, rest) => {
+        if(valueList.size >= minLength) {
+          // We found enough values to have GT
+          Success(valueList, rest)
+        } else {
+          // We dropped GT, which is illegal
+          Failure("Illegally dropped \"GT\" field", in)
+        }
+      }
+      // We didn't parse the genotype fields.
+      case err : NoSuccess => err
     })
   }
   

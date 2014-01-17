@@ -53,6 +53,14 @@ class VariantParsersTest extends FunSuite {
     assert(parser.parseAll(parser.chromosome, "X").get === Right("X"))
   }
   
+  test("chromosomes cannot be empty strings") {
+    assert(!parser.parseAll(parser.chromosome, "").successful)
+  }
+  
+  test("chromosomes cannot be \".\"") {
+    assert(!parser.parseAll(parser.chromosome, ".").successful)
+  }
+  
   test("positions are non-negative integers") {
     assert(parser.parseAll(parser.position, "0").get === 0)
     assert(parser.parseAll(parser.position, "1234").get === 1234)
@@ -111,7 +119,6 @@ class VariantParsersTest extends FunSuite {
     assert(parser.parseAll(parser.alternates, "<ALTID>").get === Left(Right(VcfId("ALTID"))) :: Nil)
   }
   
-  
   test("alternate can be a sequence") {
     assert(parser.parseAll(parser.alternates, "atcGN").get === Right("ATCGN") :: Nil)
   }
@@ -135,20 +142,57 @@ class VariantParsersTest extends FunSuite {
     assert(parser.parseAll(parser.variant, row).successful)
   }
   
-  test("ID, QUAL and FILTERS are optional fields") {
-    val missing = "22\t16050408\t.\tT\tC\t.\t.\t"
+  test("ID, QUAL and FILTERS, and ALT are optional fields") {
+    val missing = "22\t16050408\t.\tT\t.\t.\t.\t"
     assert(parser.parseAll(parser.variant, missing).successful)
   }
   
-  test("variant row requires CHROM, POS, ID, REF, and ALT") {
+  test("variant row requires text for CHROM") {
     val a = "\t16050408\trs149201999\tT\tC\t.\t.\t"
+    
+    assert(!parser.parseAll(parser.variant, a).successful)
+  }
+  
+  test("variant row requires text for POS") {
     val b = "22\t\trs149201999\tT\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, b).successful)
+  }
+  
+  test("variant row requires text for ID") {
+    val c = "22\t16050408\t\tT\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, c).successful)
+  }
+  
+  test("variant row requires text for REF") {
     val d = "22\t16050408\trs149201999\t\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, d).successful)
+  }
+  
+  test("variant row requires text for ALT") {
     val e = "22\t16050408\trs149201999\tT\t\t.\t.\t"
       
-    assert(!parser.parseAll(parser.variant, a).successful)
-    assert(!parser.parseAll(parser.variant, b).successful)
-    assert(!parser.parseAll(parser.variant, d).successful)
     assert(!parser.parseAll(parser.variant, e).successful)
   }
+  
+  test("variant row requires data for CHROM") {
+    val a = ".\t16050408\trs149201999\tT\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, a).successful)
+  }
+  
+  test("variant row requires data for POS") {
+    val b = "22\t.\trs149201999\tT\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, b).successful)
+  }
+  
+  test("variant row requires data for REF") {
+    val d = "22\t16050408\trs149201999\t.\tC\t.\t.\t"
+      
+    assert(!parser.parseAll(parser.variant, d).successful)
+  }
+  
 }
