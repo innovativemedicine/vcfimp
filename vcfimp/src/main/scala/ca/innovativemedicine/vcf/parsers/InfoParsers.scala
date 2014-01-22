@@ -48,6 +48,15 @@ trait InfoParsers extends JavaTokenParsers with VcfValueParsers {
     }
   }
   
-  def info(alleleCount: Int): Parser[Map[Info, List[VcfValue]]] =
+  
+  
+  def info(alleleCount: Int): Parser[Map[Info, List[VcfValue]]] = {
+    // We need an explicitly typed empty map because of
+    // covariance/contravariance getting confused when we try to use type
+    // inferrence.
+    val emptyMap : Map[Info, List[VcfValue]] = Map.empty
+    // VCF INFO column entries are either "." or some fields.
+    ("." ^^^ emptyMap ) |
     repsep(infoField(alleleCount), ';')  ^^ { _.toMap }
+  }
 }
