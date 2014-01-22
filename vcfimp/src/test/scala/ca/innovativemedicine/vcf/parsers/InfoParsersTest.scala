@@ -30,6 +30,11 @@ class InfoParsersTest extends FunSuite {
           b  -> List(VcfFlag)))
   }
   
+  test("missing-data INFO is parsed correctly") {
+    val info = "."
+    assert(parser.parseAll(parser.info(3), info).get === Map())
+  }
+  
   test("partially-full INFOs should parse") {
     assert(parser.parseAll(parser.info(3), "F2=1.0,2").successful)
     assert(parser.parseAll(parser.info(3), "F2=1.0,2;IV=").successful)

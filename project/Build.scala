@@ -9,6 +9,7 @@ object VcfImpBuild extends Build {
     name := "VCFImp",
     version := "0.7.0",
     scalaVersion := "2.10.3",
+    crossScalaVersions := Seq("2.9.3", "2.10.3"),
     scalacOptions ++= Seq("-deprecation", "-unchecked", "-optimize"),
     libraryDependencies += "org.scalatest" %% "scalatest" % "1.9.1" % "test",
     libraryDependencies += "org.scala-lang" % "scala-actors" % "2.10.0-M6"
